@@ -1,0 +1,24 @@
+{% extends "work/base.html" %}
+{% block content %}
+<div>
+    <div style="display: flex; justify-content:space-evenly; margin: 8px; width:30em">
+        <b>Resolution Center</b>
+        <a href="/admin/work/resolution/add/" target="_blank">Add</a>
+        <a href="/admin/work/resolution/" target="_blank">View all</a>
+    </div>
+
+    <table style="text-align: left;">
+        {% for res in resolutions %}
+        <tr>
+            <td><a href="{% url 'work:resolutionlinkedpage' res.id%}" style="text-decoration: none;"
+                    target="_blank">{{res}}</a></td>
+            <td>
+                {% if res.deadline %}
+                {{res.deadline}}
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

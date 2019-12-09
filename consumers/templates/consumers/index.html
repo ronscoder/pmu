@@ -1,0 +1,50 @@
+{% extends "work/base.html" %}
+
+{% block content %}
+<!--- Upload consumer records -->
+<p>Upload consumer data</p>
+<div id="appConsumer">
+    <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+        {% csrf_token %}
+        <input hidden name='path' value="files/template_consumer_details.xlsx">
+        <input hidden name='filename' value="template_consumer_details.xlsx">
+        <input hidden name='tabtype' value="template_consumer_details">
+        <input type="submit" value="Download Consumer Details Template">
+    </form>
+    <form action="{% url 'consumers:upload'%}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label>Upload id</label>
+        <input type="text" name="upid" v-model="upid" @change="changed">
+        <input type="file" name="file" accept=".xlsx" @change="changed" v-model="file">
+        <input type="submit" value="upload" :disabled="!isValid">
+    </form>
+    <div class="section">
+        <strong>Consumers Count</strong>
+        {{data | safe}}
+    </div>
+</div>
+{% endblock %}
+{% block right %}
+{% endblock %}
+{% block script %}
+<script>
+    new Vue({
+        el: "#appConsumer",
+        delimiters: ["{:", ":}"],
+        data: {
+            isValid: false,
+            upid: null,
+            file: null
+        },
+        methods: {
+            changed: function () {
+                if(this.upid == null)
+                    this.upid = this.file;
+                this.isValid = this.file != null && this.upid != null;
+            }
+        }
+
+    });
+</script>
+
+{% endblock %}

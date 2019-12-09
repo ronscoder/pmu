@@ -1,0 +1,333 @@
+{% extends "work/base.html" %}
+{% block content %}
+{% include "work/resolutionbox.html"%}
+{% load static %}
+<div id="review" style="display: flex; flex-direction:row">
+    <div style="width: 40em;">
+        <form @submit.prevent="load(true)">
+            {% csrf_token %}
+            <!-- <label for="habid">Habitation to review</label>
+            <input name="habid" autofocus placeholder="enter habitation id" v-model="habid"> -->
+            <label for="pid">Progress to review</label>
+            <input name="pid" autofocus placeholder="progress id" v-model="pid" disabled>
+            <a :href="p_url" target="_blank">go to progress</a>
+            <!-- <button @click="nextReview">Next unreviewed completed with doc</button> -->
+            <!-- <input name="review" type="submit" :disabled="!habid"> -->
+        </form>
+        <div :class="[m['type'], 'message']" v-for="m in msg">
+            {: m['text'] :}
+        </div>
+        <div v-if="hasData">
+            <div style="display:flex; justify-content:space-between; background-color:rgb(128, 128, 202); padding: 8; ">
+                <strong>Review</strong>
+                <div>
+                    <input type="checkbox" id="ok" v-model="ok" disabled><button :disabled="ok || noEdit"
+                        @click="updateReviewField('ok')">Ok</button>
+                    <input type="checkbox" id="issue" v-model="issue" disabled><button :disabled="issue || noEdit"
+                        @click="updateReviewField( 'issue')">Issue</button>
+                    <input type="checkbox" id="not reviewed" :checked="!(ok || issue)" disabled><button
+                        :disabled="(ok && issue)  || noEdit" @click="updateReviewField('not_reviewed')">not
+                        reviewed</button>
+                </div>
+            </div>
+            <div>
+                <textarea v-model="review_text" rows="3" placeholder="enter review text" :disabled="noEdit"
+                    style="width:100%;"></textarea>
+                <br>
+                <button @click="updateReviewTxt" id="btn_update_review_text"
+                    :disabled="!reviewTxtChanged || noEdit">update
+                    text</button>
+                <button @click="addToResolution" id="btn_add_to_resolution"
+                    :disabled="review_text == null || review_text.length == 0 || noEdit">Add
+                    to
+                    resolution</button>
+                <!-- <a v-if="resolution_id" !href="'/admin/work/resolution/' + resolution_id">go to resolution</a> -->
+            </div>
+            <hr>
+            <table style="width:98%; margin:auto">
+                <tr>
+                    <th>District</th>
+                    <td>{: site['district'] :}</td>
+                    <th>Division</th>
+                    <td>{: site['division'] :}</td>
+                    <!-- <th>Division</th>
+                    <td>{: division :}</td> -->
+                </tr>
+                <tr>
+                    <th>Village</th>
+                    <td>{: site['village'] :}</td>
+                    <th>Census</th>
+                    <td>{: site['census'] :}</td>
+                </tr>
+                <tr>
+                    <th>Habitation</th>
+                    <td><a :href="p_url" target="_blank">{: site['habitation'] :}</a></td>
+                    <th>Status</th>
+                    <td>{: status :}</td>
+                </tr>
+                <tr>
+                    <th>Category</th>
+                    <td>{: site['category'] :}</td>
+                    <th>Block</th>
+                    <td>{: site['block'] :}</td>
+                </tr>
+                <tr>
+                    <td colspan="2">{: isAdditional>0?"additional":"surveyed" :} | {: approval :}
+                    </td>
+                    <td><a :href="'/admin/work/site/' + site['id']" target="_blank">Site header</a></td>
+                </tr>
+            </table>
+            <hr>
+            <table class="comparetab">
+                <thead>
+                    <th>Particular</th>
+                    <th>Surveyed</th>
+                    <th>Executed</th>
+                    <th>S-E</th>
+                    <th><button :disabled="!reqUpdate || noEdit" @click="updateQty">update</button>
+                    </th>
+                </thead>
+                <tbody>
+                    <template>
+                        <Quant v-for="(quant,index) in quants" v-bind:key="index" :qty="quant"
+                            v-on:update="addFieldValue" v-on:undo="undo" :disabled="noEdit">
+                        </Quant>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        <div v-else>
+            No proper data
+        </div>
+    </div>
+
+    <div class="reviewdoc">
+        <object :data="doc_url" type="application/pdf" v-if="doc_url"></object>
+        <!-- width="800" height="600"> -->
+        <div v-else>No document</div>
+    </div>
+</div>
+<!-- <div>
+    <iframe src="/admin/work/resolution/17/change/"></iframe>
+</div> -->
+{% endblock %}
+{% block right %}
+{% endblock %}
+{% block script %}
+<script>
+    Vue.component(
+        'Quant',
+        {
+            props: ['qty', 'disabled'],
+            delimiters: ["{:", ":}"],
+            data: function () {
+                return {
+                    executed: this.qty['executed'],
+                    field: this.qty['field'],
+
+                    valueChanged: false,
+                };
+            },
+            template: `<tr>
+                    <th>{: qty['field'] :}</th>
+                    <td>{: qty['surveyed'] :}</td>
+                    <td><input v-model="executed" type="number" :disabled="disabled || !qty['meta']['dbfield']['executed']"></td>
+                    <td>{: (qty['surveyed'] - executed).toFixed(3) :}</td>
+                    <td><button v-if="valueChanged" @click="undo"  :disabled="disabled">undo</button></td>
+                </tr>`,
+            methods: {
+                undo: function () {
+                    this.executed = this.qty['executed'];
+                    this.$emit('undo', this.field);
+                    this.valueChanged = false;
+                }
+            },
+            watch: {
+                executed: function (newValue, oldValue) {
+                    this.valueChanged = this.qty['executed'] != this.executed;
+                    if (this.valueChanged)
+                        this.$emit('update', this.field, newValue);
+                }
+            }
+        }
+    );
+
+    reviewApp = new Vue(
+        {
+            el: "#review",
+            delimiters: ["{:", ":}"],
+            data: {
+                hasData: false,
+                habid: null,
+                pid: null,
+                quants: null,
+                ok: null,
+                issue: null,
+                review_text: "",
+                site: null,
+                msg: [],
+                isAddtional: 0,
+                doc_url: null,
+                status: null,
+                remark: null,
+                review: null,
+                approval: "",
+                reviewTxtChanged: false,
+                fieldsToUpdate: {},
+                reqUpdate: false,
+                resolution_id: null,
+                model: null,
+                noEdit: true,
+                next: false
+            },
+            computed: {
+                p_url: function () {
+                    return this.isAdditional == 1 ? '/admin/work/progressqtyextra/' : '/admin/work/progressqty/' + this.pid;
+                },
+            },
+            mounted: function () {
+
+                //console.log('mounted');
+                this.pid = "{{pid}}";
+                this.isAdditional = "{{additional}}"
+                this.noEdit = "{{noEdit}}" > 0
+                this.load(true);
+            },
+            methods: {
+                load: function (refresh) {
+                    if (refresh) {
+
+                        this.hasData = false;
+                        //this.habid= null,
+                        this.quants = null;
+                        this.ok = null;
+                        this.issue = null;
+                        //this.review_text = null;
+                        this.site = null;
+                        //this.pid = null;
+                        this.doc_url = null;
+                        //this.isAddtional = null;
+                        this.p_url = null;
+                    }
+                    let formdata = new FormData();
+                    formdata.append('pid', this.pid);
+                    formdata.append('additional', this.isAdditional);
+                    formdata.append('next', this.next);
+                    axios.post("{% url 'work:api_load_review' %}", formdata, {
+                        headers: {
+                            'X-CSRFToken': Cookies.get('csrftoken')
+                        }
+                    }).then(response => {
+                        this.msg = [];
+                        this.hasData = response.data['valid'];
+                        console.log(response.data)
+                        this.quants = response.data['quants'];
+                        msg = response.data['msg'];
+                        this.msg = msg.concat(this.msg);
+                        this.site = response.data['site'];
+                        //this.isAdditional = response.data['isAdditional'];
+                        //this.pid = response.data['pid'];
+                        this.doc_url = response.data['doc_url'];
+                        this.status = response.data['status'];
+                        this.remark = response.data['remark'];
+                        this.review_text = response.data['review_text'];
+                        this.review = response.data['review'];
+                        this.approval = response.data['approval'];
+                        //this.resolution_id = response.data['resolution'];
+                        this.model = response.data['model'];
+                        if (this.review == 'ok') this.ok = true;
+                        if (this.review == 'issue') this.issue = true;
+                        this.reviewTxtChanged = false;
+                    });
+                },
+                diff: function (s, e) {
+                    return (s - e, 2).toFixed(2);
+                },
+                updateReviewTxt: function () {
+                    this.updateField('review_text', this.review_text)
+                    this.reviewTxtChanged = false;
+                },
+                addToResolution: function () {
+                    if (this.reviewTxtChanged) {
+                        this.updateReviewTxt()
+                    }
+                    let formdata = new FormData();
+                    formdata.append('statement', this.review_text);
+                    formdata.append('status', 'pending');
+                    formdata.append('model', this.model);
+                    formdata.append('pid', this.pid);
+                    console.log(`is additional? ${this.isAdditional}`);
+                    let link = `/work/review/${this.pid}/${this.isAdditional}`; //this ending 1 means show only data =>without doc
+                    console.log(link);
+                    formdata.append('link', link);
+                    formdata.append('site', this.site['hab_id']);
+                    axios.post("{% url 'work:api_create_resolution_link' %}", formdata, {
+                        headers: {
+                            'X-CSRFToken': Cookies.get('csrftoken')
+                        }
+                    }).then(response => {
+                        this.resolution_id = response.data['resolution'];
+                        this.msg = response.data['msg'].concat(this.msg);
+                    });
+                },
+                updateField: function (field, value) {
+                    console.log(field, value);
+                    let formdata = new FormData();
+                    formdata.append('value', value);
+                    formdata.append('field', field);
+                    formdata.append('pid', this.pid);
+                    formdata.append('isAdditional', this.isAdditional);
+                    axios.post("{% url 'work:api_updateExecQty' %}", formdata, {
+                        headers: {
+                            'X-CSRFToken': Cookies.get('csrftoken')
+                        }
+                    }).then(response => {
+                        console.log(response.data);
+                        msg = response.data['msg'];
+                        this.msg = msg.concat(this.msg);
+                        this[field] = response.data['value'];
+
+                    });
+                },
+                addFieldValue: function (field, value) {
+                    this.fieldsToUpdate[field] = value;
+                    this.reqUpdate = Object.keys(this.fieldsToUpdate).length > 0;
+                    console.log(this.fieldsToUpdate);
+                },
+                undo: function (field) {
+                    delete this.fieldsToUpdate[field];
+                    this.reqUpdate = Object.keys(this.fieldsToUpdate).length > 0;
+                },
+                updateQty: function () {
+                    for (k in this.fieldsToUpdate) {
+                        this.updateField(k, this.fieldsToUpdate[k]);
+                    }
+                    this.fieldsToUpdate = {};
+                },
+                updateReviewField: function (value) {
+                    this.updateField('review', value);
+                    this.ok = value == 'ok';
+                    this.issue = value == 'issue';
+                },
+                nextReview: function () {
+                    this.next = true;
+                    this.load(true);
+                    this.next = false;
+                }
+            }, //methods
+            watch: {
+                review_text: function (newVal, oldVal) {
+                    this.reviewTxtChanged = newVal != oldVal;
+                    console.log(this.reviewTxtChanged);
+                },
+                fieldsToUpdate: {
+                    handler: function (newv, oldv) {
+                        console.log('fieldstoupdate watching...');
+                        this.reqUpdate = Object.keys(this.fieldsToUpdate).length > 0;
+                    },
+                    deep: true
+                }
+            },
+        });
+</script>
+{% endblock %}

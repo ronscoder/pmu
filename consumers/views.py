@@ -1,0 +1,80 @@
+from django.shortcuts import render, HttpResponseRedirect, reverse
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.http import JsonResponse
+import pandas as pd
+from django.contrib import messages
+from .models import Consumer
+from work.models import Site
+from work.functions import getHabID
+
+
+@ensure_csrf_cookie
+def index(request):
+    data = getData()
+    return render(request, "consumers/index.html", {'data': data})
+
+
+def getData():
+    df = pd.DataFrame([Consumer.objects.count()])
+    return df.to_html()
+
+
+def upload(request):
+    if(not request.method == 'POST'):
+        return render(request, "consumers/index.html")
+    file = request.FILES['file']
+    upid = request.POST['upid']
+    df = pd.read_excel(file, 'upload')
+    df = df.fillna('')
+    df_template = pd.read_excel('files/template_consumer_details.xlsx')
+    cols = df_template.columns
+    truths = [col in df.columns for col in df_template.columns]
+    ifmatch = all(truths)
+    ncreated = 0
+    nupdated = 0
+    if(not ifmatch):
+        notmatch = [df_template.columns[i]
+                    for i, col in enumerate(truths) if not col]
+        messages.error(request, "Field not found– ")
+        messages.error(request, notmatch)
+        return HttpResponseRedirect(reverse('consumers:index'))
+    for index, row in df.iterrows():
+        # unique_together = ('census', 'habitation', 'name', 'consumer_no')
+        print('Processing..')
+        print(row)
+        consumer, created = Consumer.objects.get_or_create(
+            census=row[cols[0]],
+            habitation=" ".join(str(row[cols[1]]).split()).upper(),
+            name=" ".join(str(row[cols[3]]).split()).upper(),
+            consumer_no=str(row[cols[7]]).replace(" ","").upper()
+        )
+        if(created):
+            ncreated += 1
+        else:
+            nupdated += 1
+        consumer.edate = row[cols[2]]
+        consumer.status = row[cols[11]]
+        consumer.aadhar = row[cols[5]]
+        consumer.meter_no = row[cols[8]]
+        consumer.apl_bpl = row[cols[6]]
+        consumer.mobile_no = row[cols[4]]
+        consumer.voter_no = row[cols[9]]
+        consumer.tariff = row[cols[10]]
+        consumer.pdc_date = row[cols[12]]
+        consumer.address1 = row[cols[13]]
+        consumer.address2 = row[cols[14]]
+        consumer.changeid = upid
+        hab_id = getHabID(census=row[cols[0]], habitation=row[cols[1]])
+        if(Site.objects.filter(hab_id=hab_id).exists()):
+            site = Site.objects.get(hab_id=hab_id)
+            consumer.site = site
+        try:
+            consumer.save()
+        except Exception as ex:
+            messages.error(request, ex.__str__())
+            print('Processing..')
+            print(row)
+            print(ex)
+    messages.success(request, '{} updated. {} uploaded of {} records'.format(
+        nupdated, ncreated, len(df)))
+    return HttpResponseRedirect(reverse('consumers:index'))

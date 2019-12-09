@@ -1,0 +1,1 @@
+. ProgressQtyExtra.objects.get(site__hab_id=sid) to lookup using foreign key field

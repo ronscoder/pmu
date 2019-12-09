@@ -1,0 +1,93 @@
+<html>
+
+<head>
+    {% load static %}
+    <link href="{% static 'work/style.css' %}" rel="stylesheet">
+    <!-- <link href="{% static 'work/css/materialize.min.css' %}" rel="stylesheet">
+    <link href="{% static 'work/js/materialize.min.js' %}" rel="text/javascript"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" type="image/png" href="{% static 'favicon.png' %}" />
+</head>
+
+<body>
+    <div id="base">
+        <!-- <div id='nav' :class="{'section':true, 'leftnavExpanded': navCollapse,'leftnavMini': !navCollapse}"> -->
+        <div id='nav'>
+            <!-- <div @click="leftNav = !leftNav">{: leftNav? 'Minimize':'Show' :}</div> -->
+            <ul>
+                <strong>Project Monitoring</strong>
+                <li><a target="_blank" href="{% url 'work:index' %}">Summary</a></li>
+                <li><a target="_blank" href="{% url 'work:detail' %}">Details</a></li>
+                <li><a target="_blank" href="{% url 'consumers:index' %}">Consumers</a></li>
+                <li><a target="_blank" href="{% url 'work:resolution' %}">Resolution/Issues</a></li>
+                <!-- <li><a target="_blank" href="#update_progress">Update Progress</a></li>
+            <li><a target="_blank" href="#upload_surveydata">Upload Survey Data</a></li> -->
+                <!-- <li><a target="_blank" href="#recent_changes">Recent Changes</a></li> -->
+                <!-- <li><a target="_blank" href="#reload_dpr">Load DPR</a></li> -->
+            </ul>
+        </div>
+    </div>
+
+    <div id='content'>
+        {% if messages %}
+        <div class="flash">
+            <ul>
+                {% for message in messages %}
+                <li class="{{message.tags}}">{{ message | safe}}</li>
+                {% endfor %}
+            </ul>
+
+        </div>
+        {% endif %}
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <div id="right">
+        {% block right %}
+        {% endblock %}
+    </div>
+    <div style="height: 20vh;"></div>
+    </div>
+    <!-- <script type="text/javascript" src="{% static 'work/js/materialize.min.js' %}"></script> -->
+    <script type="text/javascript" src="{% static 'work/js/jquery-3.4.1.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'work/js/vue.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'work/js/axios.min.js' %}"></script>
+    <script type="text/javascript" src="{% static 'work/js/js.cookie.min.js' %}"></script>
+
+    {% block script %}
+    {% endblock %}
+
+
+    
+    <script>
+        /*
+        const baseState = Vue.observable({ navStateOpen: true });
+        var baseApp = new Vue({
+            el: "#base",
+            delimiters: ["{:", ":}"],
+            data: {
+                isCollapsed: true,
+                leftNav: true
+            },
+            computed: {
+                navCollapse: function () {
+                    return baseState.navStateOpen
+                }
+            },
+            watch: {
+                leftNav: function (newv, oldv) {
+                    baseState.navStateOpen = newv;
+                }
+            },
+            methods: {
+                collapse: function () {
+
+                }
+            },
+
+        });*/
+    </script>
+</body>
+
+</html>
