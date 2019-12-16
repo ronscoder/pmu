@@ -3,7 +3,7 @@ import re
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from simple_history.models import HistoricalRecords
-
+# from work.functions import getHabID, getSiteProgress, formatString
 
 def getHabID(census, habitation):
     return re.sub('[\W]+', '', "{}{}".format(census, habitation)).upper()
@@ -65,10 +65,13 @@ class SiteMeta(models.Model):
         self.hab_id = getHabID(census=self.census, habitation=self.habitation)
         self.habitation = str(self.habitation).upper()
         self.village = str(self.village).upper()
-        super(SiteMeta, self).save(*args, **kwargs)
+        print('saving... {}'.format(self.hab_id))
+        # super(SiteMeta, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
 class Qfields(models.Model):
     ht = models.FloatField(blank=True, null=True)
+    ht_conductor = models.FloatField(blank=True, null=True)
     lt_1p = models.FloatField(blank=True, null=True)
     lt_3p = models.FloatField(blank=True, null=True)
     dtr_25 = models.IntegerField(blank=True, null=True)
@@ -92,7 +95,7 @@ class Site(Common, SiteMeta):
     #     super(Site, self).save(*args, **kwargs)
 
 
-class DprQty(Common):
+class DprQty(Common, Qfields):
     def __str__(self):
         return "{}".format(self.site)
     site = models.OneToOneField(Site, on_delete=models.CASCADE)
@@ -106,17 +109,17 @@ class DprQty(Common):
     hh_unmetered = models.IntegerField(blank=True, null=True)
     hh_apl_free = models.IntegerField(blank=True, null=True)
     hh_apl_not_free = models.IntegerField(blank=True, null=True)
-    ht_length = models.FloatField(blank=True, null=True)
-    lt3_length = models.FloatField(blank=True, null=True)
-    lt1_length = models.FloatField(blank=True, null=True)
-    dtr100_no = models.IntegerField(blank=True, null=True)
-    dtr63_no = models.IntegerField(blank=True, null=True)
-    dtr25_no = models.IntegerField(blank=True, null=True)
+    # ht = models.FloatField(blank=True, null=True)
+    # lt_3p = models.FloatField(blank=True, null=True)
+    # lt_1p = models.FloatField(blank=True, null=True)
+    # dtr_100 = models.IntegerField(blank=True, null=True)
+    # dtr_63 = models.IntegerField(blank=True, null=True)
+    # dtr_25 = models.IntegerField(blank=True, null=True)
     remark = models.CharField(max_length=100, blank=True, null=True)
     has_infra = models.BooleanField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
-        if(sum(self.ht_length, self.lt3_length, self.lt1_length, self.dtr100_no, self.dtr63_no, self.dtr25_no) > 0):
+        if(sum([self.ht, self.lt_3p, self.lt_1p, self.dtr_100, self.dtr_63, self.dtr_25]) > 0):
             self.has_infra = True
         else:
             self.has_infra = False
@@ -126,21 +129,8 @@ class SurveyQty(Common, Qfields):
     def __str__(self):
         return "{} - {}".format(self.site, self.approval_status)
     site = models.OneToOneField(Site, on_delete=models.CASCADE)
-    # ht = models.FloatField(blank=True, null=True)
-    # lt_1p = models.FloatField(blank=True, null=True)
-    # lt_3p = models.FloatField(blank=True, null=True)
-    # dtr_25 = models.IntegerField(blank=True, null=True)
-    # dtr_63 = models.IntegerField(blank=True, null=True)
-    # dtr_100 = models.IntegerField(blank=True, null=True)
-    # pole_lt_8m = models.IntegerField(blank=True, null=True)
-    # pole_ht_8m = models.IntegerField(blank=True, null=True)
-    # pole_8m = property(lambda self: sum(
-    #     [qty for qty in [self.pole_lt_8m, self.pole_ht_8m] if qty != None]))
-    # pole_9m = models.IntegerField(blank=True, null=True)
     approval_status = models.CharField(max_length=200, blank=True, null=True)
     remark = models.CharField(max_length=200, blank=True, null=True)
-    # pole_ht_8m = property(lambda self: self.ht * 14 if not self.ht == None else 0)
-    # pole_ht_8m = property(lambda self: self.ht * 14 if not self.ht == None else 0)
 
 
 class ShiftedMeta(models.Model):
@@ -170,14 +160,6 @@ def habCompletionDocPath(instance, filename):
 class ProgressMeta(Common, Qfields):
     class Meta:
         abstract = True
-    # ht = models.FloatField(blank=True, null=True)
-    # pole_ht_8m = models.IntegerField(blank=True, null=True)
-    # lt_3p = models.FloatField(blank=True, null=True)
-    # lt_1p = models.FloatField(blank=True, null=True)
-    # pole_lt_8m = models.IntegerField(blank=True, null=True)
-    # dtr_100 = models.IntegerField(blank=True, null=True)
-    # dtr_63 = models.IntegerField(blank=True, null=True)
-    # dtr_25 = models.IntegerField(blank=True, null=True)
     remark = models.CharField(max_length=200, blank=True, null=True)
     status = models.CharField(max_length=200, blank=True, null=True,
                               choices=(
@@ -186,8 +168,11 @@ class ProgressMeta(Common, Qfields):
                                   ('not started', 'not started'),
                                   ('canceled', 'canceled'),
                               ))
+
+    cert = models.BooleanField(default=False)
     document = models.FileField(
         upload_to=habCompletionDocPath, null=True, blank=True)
+    
     review = models.CharField(default='not reviewed', max_length=50, blank=True, null=True,
                               choices=(
                                   ('ok', 'ok'),
@@ -253,6 +238,7 @@ class Resolution(Timestamp):
                               choices=(
                                   ("done", "done"),
                                   ("pending", "pending"),
+                                  ("deferred", "deferred"),
                               )
                               )
     document = models.FileField(
@@ -268,4 +254,12 @@ class ResolutionLink(models.Model):
         Resolution, on_delete=models.CASCADE, null=True)
     # user1 = models.CharField(max_length=100, null=True, blank=True)
 
+def LoaDocPath(instance, filename):
+    return 'LOA/{}-{}'.format(filename)
 
+class Loa(Qfields):
+    area = models.CharField(max_length=50, unique=True)
+    supply_cost = models.FloatField(blank=True, null=True)
+    erection_cost = models.FloatField(blank=True, null=True)
+    document = models.FileField(
+        upload_to=LoaDocPath, blank=True, null=True)

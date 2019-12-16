@@ -22,6 +22,21 @@
         <strong>Consumers Count</strong>
         {{data | safe}}
     </div>
+    <div class="section">
+        <form @submit.prevent="loadConsumers()" style="display: flex; flex-direction:row; justify-content:flex-start;">
+            <label>Village</label>
+            <input type="text" name="village" id="village" v-model="village">
+            <label>census + habitation</label>
+            <input type="text" name="habid" id="habid" v-model="habid" autofocus>
+            <label>Hab id</label>
+            <input type="text" name="habid_exact" id="habid_exact" v-model="habid_exact" autofocus>
+            <input type="submit" :disabled="!habid && !habid_exact && !village" value="Load">
+        </form>
+        <hr>
+    </div>
+    <div v-if="consumers" class="section">
+        <span v-html="consumers"></span>
+    </div>
 </div>
 {% endblock %}
 {% block right %}
@@ -34,13 +49,34 @@
         data: {
             isValid: false,
             upid: null,
-            file: null
+            file: null,
+            habid: null,
+            habid_exact: null,
+            village: null,
+            consumers: null
         },
         methods: {
             changed: function () {
-                if(this.upid == null)
+                if (this.upid == null)
                     this.upid = this.file;
                 this.isValid = this.file != null && this.upid != null;
+            },
+            loadConsumers: function () {
+                this.consumers = null;
+                let formdata = new FormData();
+                if (this.habid)
+                    formdata.append('habid', this.habid.replace(" ", ""));
+                if (this.habid_exact)
+                    formdata.append('habid_exact', this.habid_exact.replace(" ", ""));
+                if (this.village)
+                    formdata.append('village', this.village.replace(" ", ""));
+                axios.post("{% url 'consumers:api_getConsumers' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.consumers = response.data['consumers'];
+                });
             }
         }
 

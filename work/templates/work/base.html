@@ -54,40 +54,9 @@
     <script type="text/javascript" src="{% static 'work/js/vue.min.js' %}"></script>
     <script type="text/javascript" src="{% static 'work/js/axios.min.js' %}"></script>
     <script type="text/javascript" src="{% static 'work/js/js.cookie.min.js' %}"></script>
-
     {% block script %}
     {% endblock %}
-
-
-    
-    <script>
-        /*
-        const baseState = Vue.observable({ navStateOpen: true });
-        var baseApp = new Vue({
-            el: "#base",
-            delimiters: ["{:", ":}"],
-            data: {
-                isCollapsed: true,
-                leftNav: true
-            },
-            computed: {
-                navCollapse: function () {
-                    return baseState.navStateOpen
-                }
-            },
-            watch: {
-                leftNav: function (newv, oldv) {
-                    baseState.navStateOpen = newv;
-                }
-            },
-            methods: {
-                collapse: function () {
-
-                }
-            },
-
-        });*/
-    </script>
+    <script type="text/javascript" src="{% static 'work/js/script.js' %}"></script>
 </body>
 
 </html>

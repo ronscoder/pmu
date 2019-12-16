@@ -26,6 +26,7 @@ class Consumer(Common):
         unique_together = ('census', 'habitation', 'name', 'consumer_no')
     site = models.ForeignKey(
         Site, on_delete=models.SET_NULL, null=True, blank=True)
+    hab_id = models.CharField(max_length=50, null=True, blank=True)
     village = models.CharField(max_length=50, null=True, blank=True)
     census = models.IntegerField()
     habitation = models.CharField(max_length=50)

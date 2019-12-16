@@ -1,5 +1,6 @@
 /* body{
-    color: blue;
+  max-height: 400px;
+  overflow-y: scroll;
 } */
 
 div * {
@@ -36,7 +37,7 @@ table, th, td {
     border: 1px solid black;
 }
 
-table th {
+th {
     position: -webkit-sticky;
     position: sticky;
     top: 0;
@@ -48,15 +49,15 @@ tbody th {
     text-align: left;
 }
 
-.summary tbody td {
+/* .summary tbody td {
     text-align: right;
-}
+} */
 
-th {
+/* th { */
     /* max-width: 6em; */
-    text-overflow: clip;
-    text-orientation: upright;
-}
+    /* text-overflow: clip; */
+    /* text-orientation: upright; */
+/* } */
 
 table td {
     font-family: 'Courier New', Courier, monospace;
@@ -91,7 +92,7 @@ table td {
 } */
 
 #nav ul {
-    display:flex;
+    display: flex;
     flex-direction: row;
     list-style: none;
     /* list-style-position: outside; */
@@ -105,7 +106,8 @@ table td {
     margin: 0;
     height: 2em;
 }
-#nav li{
+
+#nav li {
     padding: 0 8px;
     vertical-align: middle;
 }
@@ -128,7 +130,7 @@ table td {
     /* margin-right: 12%; */
     /* margin-right: 25%; */
     /* width: 10em; */
-    margin-top:2em;
+    margin-top: 2em;
     overflow: scroll;
     padding: 4px;
     box-sizing: border-box;
@@ -323,9 +325,6 @@ small {
     height: 100vh;
 }
 
-.comparetab td {
-    text-align: right;
-}
 
 .message {
     background-color: rgb(228, 159, 241);
@@ -386,4 +385,17 @@ table input[type="file"] {
 .comparetab {
     width: 98%;
     margin: auto;
+}
+
+/* td[value] {
+    text-align: right;
+} */
+/* make the cells output their value */
+td[value]:after {
+    content: attr(value);
+}
+
+/* make debit amounts show up in red */
+td[value^="-"]:after {
+    color: rgb(243, 220, 220);
 }

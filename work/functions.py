@@ -1,4 +1,8 @@
 import re
+from work.models import Site, ShiftedQty, ProgressQty, SurveyQty, ShiftedQtyExtra, ProgressQtyExtra, SiteExtra, DprQty, Log
+import pandas as pd
+
+
 def getHabID(census, habitation):
     return re.sub('[\W]+', '', "{}{}".format(census, habitation)).upper()
 
@@ -7,10 +11,6 @@ def formatString(x):
     if(not x):
         return x
     return " ".join(x.__str__().split()).upper()
-
-
-from work.models import Site, ShiftedQty, ProgressQty, SurveyQty, ShiftedQtyExtra, ProgressQtyExtra, SiteExtra, DprQty, Log
-import pandas as pd
 
 
 def getSiteProgress():
@@ -26,5 +26,4 @@ def getSiteProgress():
     df = pd.concat([dfP, dfPX])
     df.to_excel('outputs/progress_sites.xlsx')
     return df
-
 

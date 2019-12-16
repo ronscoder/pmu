@@ -5,8 +5,7 @@ import pandas as pd
 from django.contrib import messages
 from .models import Consumer
 from work.models import Site
-from work.functions import getHabID
-
+from work.functions import getHabID,formatString
 
 @ensure_csrf_cookie
 def index(request):
@@ -46,7 +45,7 @@ def upload(request):
             census=row[cols[0]],
             habitation=" ".join(str(row[cols[1]]).split()).upper(),
             name=" ".join(str(row[cols[3]]).split()).upper(),
-            consumer_no=str(row[cols[7]]).replace(" ","").upper()
+            consumer_no=str(row[cols[7]]).replace(" ", "").upper()
         )
         if(created):
             ncreated += 1
@@ -78,3 +77,28 @@ def upload(request):
     messages.success(request, '{} updated. {} uploaded of {} records'.format(
         nupdated, ncreated, len(df)))
     return HttpResponseRedirect(reverse('consumers:index'))
+
+
+def api_getConsumers(request):
+    if(request.method != 'POST'):
+        return JsonResponse(
+            'nothing to do'
+        )
+    filterString = {}
+    habid = request.POST.get('habid', None)
+    if(habid):
+        filterString['hab_id__icontains'] = habid
+    habid_exact = request.POST.get('habid_exact',None)
+    if(habid_exact):
+        filterString['hab_id__exact'] = habid_exact
+    village = request.POST.get('village', None)
+    village = formatString(village)
+    if(village):
+        filterString['village__icontains'] = village
+
+    consumers = Consumer.objects.filter(**filterString)
+
+    return JsonResponse(
+        {
+            'consumers': pd.DataFrame(consumers.values()).iloc[:, 4:].to_html()
+        })

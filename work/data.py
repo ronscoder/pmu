@@ -27,6 +27,7 @@ PROGRESS_QFIELDS = [
                     'dtr_63',
                     'dtr_25',
                     'ht',
+                    'ht_conductor',
                     'lt_3p',
                     'lt_1p',
                     'pole_ht_8m',
@@ -41,6 +42,7 @@ REVIEW_QFIELDS = [
                     'dtr_63',
                     'dtr_25',
                     'ht',
+                    'ht_conductor',
                     'lt_3p',
                     'lt_1p',
                     'pole_ht_8m',
@@ -50,10 +52,10 @@ REVIEW_QFIELDS = [
                     ]
 
 DPR_INFRA_FIELDS = [
-    'ht_length',
-    'lt3_length',
-    'lt1_length',
-    'dtr100_no',
-    'dtr63_no',
-    'dtr25_no',
+    'ht',
+    'lt_3p',
+    'lt_1p',
+    'dtr_100',
+    'dtr_63',
+    'dtr_25',
 ]

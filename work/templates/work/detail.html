@@ -62,8 +62,13 @@
             </div>
             <br>
             <div>
+                <label><input type="radio" name="cert" value='any' v-model="cert">w/w/o cert</label>
+                <label><input type="radio" name="cert" value='True' v-model="cert">w/ cert</label>
+                <label><input type="radio" name="cert" value='False' v-model="cert">w/o cert</label>
+            </div>
+            <div>
                 <label><input type="radio" name="doc" value='any' v-model="withDoc">w/w/o doc</label>
-                <label><input type="radio" name="doc" value='withdoc' v-model="withDoc">With doc</label>
+                <label><input type="radio" name="doc" value='withdoc' v-model="withDoc">w/ doc</label>
                 <label><input type="radio" name="doc" value='withoutdoc' v-model="withDoc">w/o doc</label>
             </div>
             <br>
@@ -100,6 +105,7 @@
                     <th>dtr_100</th>
                     <th>dtr_63</th>
                     <th>dtr_25</th>
+                    <th>Cert?</th>
                     <th>Doc</th>
                     <th>remark</th>
                     <th>status</th>
@@ -123,6 +129,8 @@
                         <td>{:qty['dtr_100']:}</td>
                         <td>{:qty['dtr_63']:}</td>
                         <td>{:qty['dtr_25']:}</td>
+                        <td><input type="checkbox" v-model="qty['cert']"
+                                @change="updateField('cert', qty['cert']?'True':'False', qty['id'], 0)"></td>
                         <td class='td_doc'>
                             <div v-if="qty['document']" :title="qty['document']">
                                 <a :href="'../media/' + qty['document']" target="_blank">open</a>
@@ -162,6 +170,8 @@
                         <td>{:qty['dtr_100']:}</td>
                         <td>{:qty['dtr_63']:}</td>
                         <td>{:qty['dtr_25']:}</td>
+                        <td><input type="checkbox" v-model="qty['cert']"
+                                @change="updateField('cert', qty['cert']?'True':'False', qty['id'], 1)"></td>
                         <td class='td_doc'>
                             <div v-if="qty['document']" :title="qty['document']">
                                 <a :href="'../media/' + qty['document']" target="_blank">open</a>
@@ -338,12 +348,12 @@
                     <th>hh_unmetered</th>
                     <th>hh_apl_free</th>
                     <th>hh_apl_not_free</th>
-                    <th>ht_length</th>
-                    <th>lt3_length</th>
-                    <th>lt1_length</th>
-                    <th>dtr100_no</th>
-                    <th>dtr63_no</th>
-                    <th>dtr25_no</th>
+                    <th>ht</th>
+                    <th>lt_3p</th>
+                    <th>lt_1p</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
                     <th>remark</th>
                     <th></th>
                 </thead>
@@ -364,12 +374,12 @@
                         <td>{: s['hh_unmetered'] :}</td>
                         <td>{: s['hh_apl_free'] :}</td>
                         <td>{: s['hh_apl_not_free'] :}</td>
-                        <td>{: s['ht_length'] :}</td>
-                        <td>{: s['lt3_length'] :}</td>
-                        <td>{: s['lt1_length'] :}</td>
-                        <td>{: s['dtr100_no'] :}</td>
-                        <td>{: s['dtr63_no'] :}</td>
-                        <td>{: s['dtr25_no'] :}</td>
+                        <td>{: s['ht'] :}</td>
+                        <td>{: s['lt_3p'] :}</td>
+                        <td>{: s['lt_1p'] :}</td>
+                        <td>{: s['dtr_100'] :}</td>
+                        <td>{: s['dtr_63'] :}</td>
+                        <td>{: s['dtr_25'] :}</td>
                         <td>{: s['remark'] :} </td>
                         <td><a target="_blank" :href="'/admin/work/dprqty/'+ s['id'] +'/'">edit</a></td>
                     </tr>
@@ -414,6 +424,7 @@
 
 {% block script %}
 <script>
+    var tdcss;
     var extraApp = new Vue({
         el: '#extra',
         delimiters: ["{:", ":}"],
@@ -440,7 +451,9 @@
             status: 'any',
             filterShow: true,
             review: 'any',
-            withDoc: 'any'
+            withDoc: 'any',
+            cert: 'any',
+            msg: []
         },
         filters: {
             pretty: function (value) {
@@ -517,11 +530,13 @@
                 }
                 if (!(this.withDoc == 'any'))
                     formdata.append('with_doc', this.withDoc);
+                if (!(this.cert == 'any'))
+                    formdata.append('cert', this.cert);
 
                 //this.filtervalues = [this.district, this.division, this.village, this.habid, this.habid_exact, this.status, this.review].map((f) => f ? "(Object.keys({f})[0]-f)" : "");
-                
+
                 //this.filtervalues = this.district + this.division + this.village + this.habid + this.habid_exact + this.status, this.review;
-                this.filtervalues = [this.district , this.division , this.village , this.habid , this.habid_exact , this.status, this.review, this.withDoc].map(f=>(f=="" || f== null)?"":`${f}`).join("_");
+                this.filtervalues = [this.district, this.division, this.village, this.habid, this.habid_exact, this.status, this.review, this.withDoc].map(f => (f == "" || f == null) ? "" : `${f}`).join("_");
                 formdata.append('filtername', this.filtervalues);
                 axios.post("{% url 'work:api_getSite' %}", formdata, {
                     headers: {
@@ -537,6 +552,7 @@
                     this.progressSites = response.data['progressSites'];
                     this.progressAddtionalSites = response.data['progressAddtionalSites'];
                     this.summary = response.data['summary'];
+                    tdcss();
                     //this.filterShow = false;
                 });
             },
@@ -578,7 +594,23 @@
                     this.output = response.data['status']
                     this.load();
                 });
-            }
+            },
+            updateField: function (field, value, pid, isAdditional) {
+                console.log(field, value);
+                let formdata = new FormData();
+                formdata.append('value', value);
+                formdata.append('field', field);
+                formdata.append('pid', pid);
+                formdata.append('isAdditional', isAdditional);
+                axios.post("{% url 'work:api_updateExecQty' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    console.log(response.data);
+                    this.output = response.data['msg'];
+                });
+            },
         },
     })
 </script>

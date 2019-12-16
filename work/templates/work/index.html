@@ -1,11 +1,14 @@
 {% extends "work/base.html" %}
+{% load static %}
 {% block content %}
 {% include "work/_resolutionbox.html"%}
 <div id="index">
     <div v-if="output" style="overflow: scroll; max-height: 20ch;">
-        <b>Output</b>
+        <b>Output</b><br>
+        <label>Issues only <input type="checkbox" v-model="issue_only"></label>
         <ol style="list-style-position: unset; list-style:none;">
-            <li v-for="item in output" :class="item['class']">
+            <li v-for="item in output" :class="item['class']"
+                v-if="!issue_only || (issue_only && item['class']!='success')">
                 {: item['text'] :}
             </li>
         </ol>
@@ -58,16 +61,17 @@
         </form>
 
         <form action="{% url 'work:updateProgress'%}" method="post" enctype="multipart/form-data">
+            <!-- <form action="{% url 'work:validate_progress'%}" method="post" enctype="multipart/form-data"> -->
             {% csrf_token %}
             <p>Select update file</p>
             <label for="changeid">Update id</label>
             <input type="text" name="updateid" v-model="updateid">
             <input type="file" name="file" accept=".xlsx" v-on:change="handleFileUpload" ref="file">
-            <input type="submit" value="update">
+            <input type="submit" value="update" v-bind:disabled="!if_file">
         </form>
 
         <button v-on:click="validate_report()" id="validate_progress"
-            v-bind:disabled="!if_validate_progress">Check</button>
+            v-bind:disabled="!if_file">Check</button>
     </div>
     <!-- Undo -->
     <hr>
@@ -81,15 +85,13 @@
         </form>
     </div>
     <br>
-    <div>
-        <b>Progress</b>
-        {{data | safe}}
+    <div style="display: flex;">
         <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
             {% csrf_token %}
             <input hidden name='path' value="outputs/progess_summary.xlsx">
             <input hidden name='filename' value="DistrictProgressSummary.xlsx">
             <input hidden name='tabtype' value="districtwise">
-            <input type="submit" value="Download Summary">
+            <input type="submit" value="Download District Progress">
         </form>
         <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
             {% csrf_token %}
@@ -98,6 +100,17 @@
             <input hidden name='tabtype' value="sites">
             <input type="submit" value="Download Site Progress">
         </form>
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            {% csrf_token %}
+            <input hidden name='path' value="outputs/balance_progress.xlsx">
+            <input hidden name='filename' value="balance_progress.xlsx">
+            <input hidden name='tabtype' value="balance">
+            <input type="submit" value="Download Balance and Progress">
+        </form>
+    </div>
+    <div>
+        <b>Progress</b>
+        {{data | safe}}
     </div>
 </div>
 {% endblock %}
@@ -123,8 +136,9 @@
             admin: false,
             output: null,
             hasOutput: false,
-            if_validate_progress: false,
-            updateid: ""
+            if_file: false,
+            updateid: "",
+            issue_only: false
         },
         methods: {
             toggleAdmin: function () {
@@ -136,7 +150,7 @@
                 let formdata = new FormData();
                 formdata.append('file', file);
                 let csrftoken = Cookies.get('csrftoken');
-                axios.post("{% url 'work:api_validate_progress' %}", formdata,
+                axios.post("{% url 'work:validate_progress' %}", formdata,
                     {
                         headers: {
                             'Content-Type': 'multipart/form-data',
@@ -145,7 +159,8 @@
                     }
                 )
                     .then(response => {
-                        this.output = response.data.data
+                        this.output = response.data.data;
+                        this.issue_only = false;
                     })
                     .catch(ex => {
                         console.log(ex);
@@ -154,10 +169,10 @@
             handleFileUpload: function () {
                 if (this.$refs.file.files[0]) {
                     this.updateid = this.$refs.file.files[0].name;
-                    this.if_validate_progress = true
+                    this.if_file = true
                 }
                 else
-                    this.if_validate_progress = false
+                    this.if_file = false
             }
         }
     });

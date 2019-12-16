@@ -7,4 +7,5 @@ app_name = 'consumers'
 urlpatterns = [
     path('', views.index, name='index'),
     path('upload', views.upload, name='upload'),
+    path('api_getConsumers', views.api_getConsumers, name='api_getConsumers'),
 ]

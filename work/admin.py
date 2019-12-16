@@ -2,7 +2,7 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
 # Register your models here.
-from .models import Site, SurveyQty, ShiftedQty, ProgressQty, SiteExtra, ShiftedQtyExtra, ProgressQtyExtra, DprQty, Resolution
+from .models import Site, SurveyQty, ShiftedQty, ProgressQty, SiteExtra, ShiftedQtyExtra, ProgressQtyExtra, DprQty, Resolution, Loa
 from consumers.models import Consumer
 
 # admin.site.register(Site)
@@ -14,7 +14,7 @@ admin.site.register(ShiftedQtyExtra, SimpleHistoryAdmin)
 # admin.site.register(ProgressQtyExtra)
 admin.site.register(DprQty, SimpleHistoryAdmin)
 # admin.site.register(Consumer)
-# admin.site.register(Headline)
+admin.site.register(Loa)
 
 
 class ResolulationAdmin(SimpleHistoryAdmin):

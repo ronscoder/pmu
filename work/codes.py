@@ -232,3 +232,14 @@ def movToSite():
     progressxtra = ProgressQtyExtra.objects.filter(site__in = extras)
 
 
+def copyProgress(obj,model):
+    return model(**{x:getattr(obj,x) for x in vars(obj) if not x[0]=='_'}).save()
+
+def moveExtraToSite():
+# whether in Survey or not can be done by query SurveyQty site
+    xsites = SiteExtra.objects.all()
+    #1: move xsites to sites
+    for sx in xsites:
+        if(not sx.site == None):
+            copyProgress(sx.progressqtyextra, ProgressQty)
+            copyProgress(sx.shiftedqtyextra, ShiftedQty)
