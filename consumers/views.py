@@ -6,6 +6,7 @@ from django.contrib import messages
 from .models import Consumer
 from work.models import Site
 from work.functions import getHabID,formatString
+from django.db.models import F, Sum, Count, Q, FileField
 
 @ensure_csrf_cookie
 def index(request):
@@ -14,7 +15,13 @@ def index(request):
 
 
 def getData():
-    df = pd.DataFrame([Consumer.objects.count()])
+    c = Consumer.objects.values('district').annotate(records=Count('name'))
+    df = pd.DataFrame(c).fillna('None')
+    df.set_index('district',inplace=True)
+    c = Consumer.objects.filter(isInPortal=True).values('district').annotate(count=Count('name'))
+    dfp = pd.DataFrame(c).fillna('None')
+    dfp.set_index('district',inplace=True)    
+    df['in portal '] = dfp
     return df.to_html()
 
 

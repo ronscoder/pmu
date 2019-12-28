@@ -1,0 +1,85 @@
+{% extends "work/base.html" %}
+{% block content %}
+{% include "work/_resolutionbox.html"%}
+{% load static %}
+<div id="filterapp">
+    <div v-if="site">
+        Site id
+        <div v-for="(val, key) in site">
+            {:key:}: {:val:}
+        </div>
+    </div>
+    <hr>
+    <div>
+        <b>Variations</b>
+        <table>
+            <thead>
+                <th>village</th>
+                <th>census</th>
+                <th>habitation</th>
+            </thead>
+            <tbody>
+                <tr v-for="site in variants">
+                    <td>{: site['village']:}</td>
+                    <td>{: site['census']:}</td>
+                    <td>{: site['habitation']:}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <hr>
+    <div>
+        <input v-model="habv1" placeholder="habitation variant">
+        <button @click="addVariation">add</button>
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+    new Vue(
+        {
+            el: "#filterapp",
+            delimiters: ["{:", ":}"],
+            mounted() {
+                this.site_id = "{{site_id}}";
+                console.log(this.site_id);
+                this.fetchSite();
+            },
+            data: {
+                site_id: null,
+                variants: [],
+                habv1: null,
+                site: null,
+            },
+            methods: {
+                fetchSite: function () {
+                    let formdata = new FormData();
+                    axios.post("{% url 'work:variations' site_id %}", formdata, {
+                        headers: {
+                            'X-CSRFToken': Cookies.get('csrftoken')
+                        }
+                    }).then(response => {
+                        console.log(response.data);
+                        this.variants = response.data['variants']
+                        this.site = response.data['site']
+                    });
+                },
+                addVariation: function () {
+                    let formdata = new FormData();
+                    formdata.append('variant', this.habv1);
+                    formdata.append('site_id', this.site_id);
+                    axios.post("{% url 'work:addVariation' %}", formdata, {
+                        headers: {
+                            'X-CSRFToken': Cookies.get('csrftoken')
+                        }
+                    }).then(response => {
+                        console.log(response.data);
+                        this.fetchSite();
+                        this.habv1 = null;
+                    });
+                }
+            },
+        }
+    );
+</script>
+{% endblock %}

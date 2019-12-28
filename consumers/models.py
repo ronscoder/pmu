@@ -45,6 +45,7 @@ class Consumer(Common):
     address2 = models.CharField(max_length=100, null=True, blank=True)
     remark = models.CharField(max_length=100, null=True, blank=True)
     isInPortal = models.BooleanField(null=True, blank=True)
+    district = models.CharField(max_length=20, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         self.habitation = " ".join(str(self.habitation).split()).upper()

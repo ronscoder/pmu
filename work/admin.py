@@ -2,18 +2,18 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
 # Register your models here.
-from .models import Site, SurveyQty, ShiftedQty, ProgressQty, SiteExtra, ShiftedQtyExtra, ProgressQtyExtra, DprQty, Resolution, Loa
+from .models import Site, SurveyQty, ShiftedQty, ProgressQty, SiteExtra, ShiftedQtyExtra, ProgressQtyExtra, DprQty, Resolution, Loa, Log
 from consumers.models import Consumer
 
 # admin.site.register(Site)
-admin.site.register(SurveyQty, SimpleHistoryAdmin)
+# admin.site.register(SurveyQty, SimpleHistoryAdmin)
 admin.site.register(ShiftedQty, SimpleHistoryAdmin)
 # admin.site.register(ProgressQty)
 admin.site.register(SiteExtra)
 admin.site.register(ShiftedQtyExtra, SimpleHistoryAdmin)
 # admin.site.register(ProgressQtyExtra)
 admin.site.register(DprQty, SimpleHistoryAdmin)
-# admin.site.register(Consumer)
+admin.site.register(Log)
 admin.site.register(Loa)
 
 
@@ -43,3 +43,9 @@ class ProgressQtyExtraAdmin(SimpleHistoryAdmin):
     # search_fields = ('changeid',)
     search_fields = ('site__hab_id',)
 admin.site.register(ProgressQtyExtra, ProgressQtyExtraAdmin)
+
+class SurveyQtyAdmin(SimpleHistoryAdmin):
+    # list_display = ('name', 'country',)
+    # search_fields = ('changeid',)
+    search_fields = ('site__hab_id',)
+admin.site.register(SurveyQty, SurveyQtyAdmin)

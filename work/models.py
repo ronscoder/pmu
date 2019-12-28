@@ -5,8 +5,8 @@ from django.contrib.contenttypes.models import ContentType
 from simple_history.models import HistoricalRecords
 # from work.functions import getHabID, getSiteProgress, formatString
 
-def getHabID(census, habitation):
-    return re.sub('[\W]+', '', "{}{}".format(census, habitation)).upper()
+def getHabID(**kwargs):
+    return re.sub('[\W]+', '', "{}{}".format(kwargs['census'], kwargs['habitation'])).upper()
 
 
 class Test(models.Model):
@@ -31,7 +31,6 @@ class Common(Timestamp):
     changeid = models.CharField(max_length=50, blank=True, null=True)
     history = HistoricalRecords(inherit=True)
     # to save without history!!
-
     def _save(self, *args, **kwargs):
         self.skip_history_when_saving = True
         try:
@@ -45,6 +44,8 @@ class Common(Timestamp):
 
 
 class Log(Common):
+    def __str__(self):
+        return '{}-{}'.format(self.updated_at, self.changeid)
     model = models.CharField(max_length=50, blank=True, null=True)
 
 
@@ -87,7 +88,7 @@ class Qfields(models.Model):
 
 class Site(Common, SiteMeta):
     def __str__(self):
-        return self.hab_id
+        return '[{}|{}|{}]'.format(self.village, self.census, self.habitation)
     origin = models.ForeignKey(
         "self", on_delete=models.SET_NULL, blank=True, null=True)
     # def save(self, *args, **kwargs):
@@ -177,7 +178,7 @@ class ProgressMeta(Common, Qfields):
                               choices=(
                                   ('ok', 'ok'),
                                   ('issue', 'issue'),
-                                  ('not reviewed', 'not review'),
+                                  ('not reviewed', 'not reviewed'),
                               ))
     review_text = models.TextField(null=True, blank=True)
 
@@ -195,7 +196,7 @@ class ProgressQty(ProgressMeta):
 
 class SiteExtra(Common, SiteMeta):
     def __str__(self):
-        return self.hab_id
+        return '[{}|{}|{}](additional)'.format(self.village, self.census, self.habitation)
     site = models.ForeignKey(
         Site, on_delete=models.CASCADE, blank=True, null=True)
     # def save(self, *args, **kwargs):
@@ -263,3 +264,13 @@ class Loa(Qfields):
     erection_cost = models.FloatField(blank=True, null=True)
     document = models.FileField(
         upload_to=LoaDocPath, blank=True, null=True)
+
+
+class Variations(models.Model):
+    variant = models.CharField(max_length=50)
+    variantof = models.ManyToManyField("self")
+
+class HabitationVariations(models.Model):
+    site = models.ManyToManyField(Site)
+    habitation = models.CharField(max_length=50)
+    

@@ -1,7 +1,7 @@
 {% extends "work/base.html" %}
 {% block content %}
 {% include "work/_resolutionbox.html" %}
-<div id="extra">
+<div id="filterapp">
     <div v-if="output" style="overflow: scroll; max-height: 20ch;">
         <b>Output</b>
         <ol style="list-style-position: unset; list-style:none;">
@@ -11,88 +11,22 @@
         </ol>
 
     </div>
-    <div :class="{'filterShow': filterShow, 'filterMini':!filterShow}">
-        <div @click="filterShow=!filterShow">
-            <strong>Selection fields</strong>
-        </div>
-        <hr>
-        <div class="nav">
-            <button @click="showSummary = !showSummary" style="width: 10em;">{: showSummary?"Details": "Summary"
-                :}</button>
-        </div>
-        <form @submit.prevent="load(1)" style="display: flex; flex-direction:column;">
-            {% csrf_token %}
-            <label>District</label>
-            <!-- <input type="text" name="district" id="district" v-model="district"><br> -->
-            <select name="district" id="district" v-model="district">
-                <option value="">--</option>
-                {% for district in districts %}
-                <option value="{{district}}">{{district}}</option>
-                {% endfor %}
-            </select>
-            <br>
-            <label>Division</label>
-            <select name="division" id="division" v-model="division">
-                <option value="">--</option>
-                {% for division in divisions %}
-                <option value="{{division}}">{{division}}</option>
-                {% endfor %}
-            </select>
-            <br>
-            <label>Village</label>
-            <input type="text" name="village" id="village" v-model="village"><br>
-            <label>census + habitation</label>
-            <input type="text" name="habid" id="habid" v-model="habid" autofocus><br>
-            <label>Hab id</label>
-            <input type="text" name="habid_exact" id="habid_exact" v-model="habid_exact" autofocus><br>
-            <div style="display: flex; flex-direction:row;">
-                <div style="display: flex; flex-direction:column;">
-                    <label><input type="radio" name="status" value='any' v-model="status">any</label>
-                    <label><input type="radio" name="status" value='completed' v-model="status">Completed</label>
-                    <label><input type="radio" name="status" value='ongoing' v-model="status">Ongoing</label>
-                    <label><input type="radio" name="status" value='not started' v-model="status">Not
-                        started</label>
-                </div>
-                <div style="display: flex; flex-direction:column;">
-                    <label><input type="radio" name="review" value='any' v-model="review">any</label>
-                    <label><input type="radio" name="review" value='ok' v-model="review">Reviewed Ok</label>
-                    <label><input type="radio" name="review" value='not reviewed' v-model="review">Not reviewed</label>
-                    <label><input type="radio" name="review" value='issue' v-model="review">Issue</label>
-                </div>
-            </div>
-            <br>
-            <div>
-                <label><input type="radio" name="cert" value='any' v-model="cert">w/w/o cert</label>
-                <label><input type="radio" name="cert" value='True' v-model="cert">w/ cert</label>
-                <label><input type="radio" name="cert" value='False' v-model="cert">w/o cert</label>
-            </div>
-            <div>
-                <label><input type="radio" name="doc" value='any' v-model="withDoc">w/w/o doc</label>
-                <label><input type="radio" name="doc" value='withdoc' v-model="withDoc">w/ doc</label>
-                <label><input type="radio" name="doc" value='withoutdoc' v-model="withDoc">w/o doc</label>
-            </div>
-            <br>
-            <input type="submit"
-                :disabled="!habid && !district && !division && !village &&!habid_exact && status=='any'" value="Load">
-        </form>
-        <div style="display: flex; justify-content:space-between;" v-if="!showSummary">
-            <a href="#sites">Sites</a>
-            <a href="#dpr">DPR</a>
-            <a href="#additional">Additional sites</a>
-            <a href="#survey">Survey</a>
-            <a href="#progress">Progress</a>
-        </div>
-    </div>
+    {% include "work/_filter.html" %}
     <br>
     <div v-if="ifloading" class="loader">
     </div>
     <div v-if="!showSummary" class="topgap">
+        <!-- <div class="tabs">
+            <button class="tab" @click=""></button>
+
+        </div> -->
         <div class="section">
             <a name="progress">Progress</a>
             <table v-if="progressSites">
                 <thead>
                     <th>Review</th>
-                    <th>Ref ID</th>
+                    <th>PK</th>
+                    <th>Site ID</th>
                     <th>Village</th>
                     <!-- <th>Hab ID</th> -->
                     <th>Census</th>
@@ -116,6 +50,7 @@
                     <tr v-for="qty in progressSites"
                         :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']" :key="qty['id']">
                         <td><a :href="'/work/review/'+ qty['id'] + '/0'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['id']:}</td>
                         <td>{:qty['site_id']:}</td>
                         <td>{:qty['village']:}</td>
                         <!-- <td>{:qty['hab_id']:}</td> -->
@@ -151,12 +86,39 @@
                                 @click="api_deleteDoc('ProgressQty', qty['id'])"><small>delete doc!</small></a>
                         </td>
                     </tr>
-                    <tr v-if="progressAddtionalSites.length">
-                        <td colspan="13" v-if="progressAddtionalSites"><em>from additional</em></td>
-                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="section">
+            <a name="progress non survey non dpr">Progress Non Survey Non DPR</a>
+            <table v-if="progressAddtionalSites">
+                <thead>
+                    <th>Review</th>
+                    <th>PK</th>
+                    <th>Site ID</th>
+                    <th>Village</th>
+                    <!-- <th>Hab ID</th> -->
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>ht</th>
+                    <th>pole_ht_8m</th>
+                    <th>lt_3p</th>
+                    <th>lt_1p</th>
+                    <th>pole_lt_8m</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
+                    <th>Cert?</th>
+                    <th>Doc</th>
+                    <th>remark</th>
+                    <th>status</th>
+                    <th>Edit</th>
+                </thead>
+                <tbody>
                     <tr v-for="qty in progressAddtionalSites"
                         :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']">
                         <td><a :href="'/work/review/'+ qty['id'] + '/1'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['id']:}</td>
                         <td>{:qty['site_id']:}</td>
                         <td>{:qty['village']:}</td>
                         <!-- <td>{:qty['hab_id']:}</td> -->
@@ -195,10 +157,80 @@
             </table>
         </div>
         <div class="section">
+            <a name="progress-nonsurvey">Non surveyed site progress</a>
+            <table v-if="progressQtyNonSurvey">
+                <thead>
+                    <th>Review</th>
+                    <th>PK</th>
+                    <th>Site ID</th>
+                    <th>Village</th>
+                    <!-- <th>Hab ID</th> -->
+                    <th>Census</th>
+                    <th>Habitation</th>
+                    <th>ht</th>
+                    <th>pole_ht_8m</th>
+                    <th>lt_3p</th>
+                    <th>lt_1p</th>
+                    <th>pole_lt_8m</th>
+                    <th>dtr_100</th>
+                    <th>dtr_63</th>
+                    <th>dtr_25</th>
+                    <th>Cert?</th>
+                    <th>Doc</th>
+                    <th>remark</th>
+                    <th>status</th>
+                    <th>Edit</th>
+
+                </thead>
+                <tbody>
+                    <tr v-for="qty in progressQtyNonSurvey"
+                        :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']" :key="qty['id']">
+                        <td><a :href="'/work/review/'+ qty['id'] + '/0'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['id']:}</td>
+                        <td>{:qty['site_id']:}</td>
+                        <td>{:qty['village']:}</td>
+                        <!-- <td>{:qty['hab_id']:}</td> -->
+                        <td>{:qty['census']:}</td>
+                        <td>{:qty['habitation']:}</td>
+                        <td>{:qty['ht']:}</td>
+                        <td>{:qty['pole_ht_8m']:}</td>
+                        <td>{:qty['lt_3p']:}</td>
+                        <td>{:qty['lt_1p']:}</td>
+                        <td>{:qty['pole_lt_8m']:}</td>
+                        <td>{:qty['dtr_100']:}</td>
+                        <td>{:qty['dtr_63']:}</td>
+                        <td>{:qty['dtr_25']:}</td>
+                        <td><input type="checkbox" v-model="qty['cert']"
+                                @change="updateField('cert', qty['cert']?'True':'False', qty['id'], 0)"></td>
+                        <td class='td_doc'>
+                            <div v-if="qty['document']" :title="qty['document']">
+                                <a :href="'../media/' + qty['document']" target="_blank">open</a>
+                            </div>
+                            <div v-else>
+                                <form enctype="multipart/form-data">
+                                    <label :for="'file'+qty['id']"></label>
+                                    <input type="file" :name="'file'+qty['id']"
+                                        @change="upload('ProgressQty', qty['id'],$event.target.files[0])">
+                                </form>
+                            </div>
+                        </td>
+                        <td>{:qty['remark']:}</td>
+                        <td>{:qty['status']:}</td>
+                        <td><a target="_blank" :href="'/admin/work/progressqty/'+ qty['id'] +'/'">edit</a></td>
+                        <td v-if="qty['document']">
+                            <a style="cursor:pointer; text-decoration: underline;"
+                                @click="api_deleteDoc('ProgressQty', qty['id'])"><small>delete doc!</small></a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="section">
             <a name="survey">Survey data</a>
             <table v-if="surevyQtys">
                 <thead>
-                    <th>Ref ID</th>
+                    <th>PK</th>
+                    <th>Site ID</th>
                     <!-- <th>Hab ID</th> -->
                     <th>Village</th>
                     <th>Census</th>
@@ -220,6 +252,7 @@
                 </thead>
                 <tbody>
                     <tr v-for="s in surevyQtys">
+                        <td>{: s['id']:}</td>
                         <td>{: s['site_id']:}</td>
                         <!-- <td>{: s['hab_id']:}</td> -->
                         <td>{: s['village']:}</td>
@@ -261,6 +294,7 @@
                     <th></th>
                     <th>progress</th>
                     <th>shifted</th>
+                    <th>variations</th>
                 </thead>
                 <tbody>
                     <tr v-for="s in site">
@@ -281,6 +315,7 @@
                         <td><a target="_blank" :href="'/admin/work/site/'+ s['id'] +'/'">edit</a></td>
                         <td><a :href="'/work/progress/' + s['id']" target="_blank">progress</a></td>
                         <td><a :href="'/work/shifted/' + s['id']" target="_blank">shifted</a></td>
+                        <td><a :href="'/work/variations/' + s['id']" target="_blank">variations</a></td>
                     </tr>
                 </tbody>
             </table>
@@ -415,7 +450,7 @@
             <input hidden name='tabtype' value="filtered summary">
             <input type="submit" value="Download this!">
         </form>
-        <span v-html="summary"></span>
+        <div v-html="summary" style="max-height: 80vh; overflow:scroll;"></div>
         <!-- last_fetch_progress.xlsx -->
     </div>
 
@@ -426,7 +461,7 @@
 <script>
     var tdcss;
     var extraApp = new Vue({
-        el: '#extra',
+        el: '#filterapp',
         delimiters: ["{:", ":}"],
         data: {
             habid: "",
@@ -436,6 +471,7 @@
             surevyQtys: null,
             siteExtra: null,
             progressSites: null,
+            progressQtyNonSurvey: null,
             progressAddtionalSites: null,
             checkedSiteExtras: [],
             checkedSites: [],
@@ -453,7 +489,9 @@
             review: 'any',
             withDoc: 'any',
             cert: 'any',
-            msg: []
+            survey: 'any',
+            msg: [],
+            additional: false
         },
         filters: {
             pretty: function (value) {
@@ -533,10 +571,15 @@
                 if (!(this.cert == 'any'))
                     formdata.append('cert', this.cert);
 
+                if (!(this.survey == 'any'))
+                    formdata.append('survey', this.survey);
+                if (this.additional)
+                    formdata.append('additional', this.additional ? "additional" : null);
+
                 //this.filtervalues = [this.district, this.division, this.village, this.habid, this.habid_exact, this.status, this.review].map((f) => f ? "(Object.keys({f})[0]-f)" : "");
 
                 //this.filtervalues = this.district + this.division + this.village + this.habid + this.habid_exact + this.status, this.review;
-                this.filtervalues = [this.district, this.division, this.village, this.habid, this.habid_exact, this.status, this.review, this.withDoc].map(f => (f == "" || f == null) ? "" : `${f}`).join("_");
+                this.filtervalues = [this.district, this.division, this.village, this.habid, this.habid_exact, this.status, this.review, this.withDoc, this.survey].map(f => (f == "" || f == null) ? "" : `${f}`).join("_");
                 formdata.append('filtername', this.filtervalues);
                 axios.post("{% url 'work:api_getSite' %}", formdata, {
                     headers: {
@@ -544,14 +587,16 @@
                     }
                 }).then(response => {
                     this.ifloading = false;
-                    console.log(response);
-                    this.site = response.data['site'];
-                    this.dprData = response.data['dprData'];
-                    this.siteExtra = response.data['siteAdditional'];
-                    this.surevyQtys = response.data['surevyQtys'];
-                    this.progressSites = response.data['progressSites'];
-                    this.progressAddtionalSites = response.data['progressAddtionalSites'];
-                    this.summary = response.data['summary'];
+                    //data = JSON.parse(response.data);
+                    data = response.data;
+                    this.site = data['site'];
+                    this.dprData = data['dprData'];
+                    this.siteExtra = data['siteAdditional'];
+                    this.surevyQtys = data['surevyQtys'];
+                    this.progressSites = data['progressSites'];
+                    this.progressQtyNonSurvey = data['progressQtyNonSurvey'];
+                    this.progressAddtionalSites = data['progressAddtionalSites'];
+                    this.summary = data['summary'];
                     tdcss();
                     //this.filterShow = false;
                 });
@@ -611,6 +656,9 @@
                     this.output = response.data['msg'];
                 });
             },
+            addVariation: function () {
+
+            }
         },
     })
 </script>

@@ -17,7 +17,7 @@
         <div :class="[m['type'], 'message']" v-for="m in msg">
             {: m['text'] :}
         </div>
-        <div v-if="hasData">
+        <div v-if="hasData" class="reviewData">
             <div style="display:flex; justify-content:space-between; background-color:rgb(128, 128, 202); padding: 8; ">
                 <strong>Review</strong>
                 <div>
@@ -63,11 +63,26 @@
                     <th>Habitation</th>
                     <td><a :href="p_url" target="_blank">{: site['habitation'] :}</a></td>
                     <th>Status</th>
-                    <td>{: status :}</td>
+                    <!-- <td>{: status :}</td> -->
+                    <td>
+                        <select v-model="status" @change="updateField('status',status)">
+                            <option>completed</option>
+                            <option>ongoing</option>
+                            <option>not started</option>
+                            <option>canceled</option>
+                        </select>
+                    </td>
                 </tr>
                 <tr>
                     <th>Category</th>
-                    <td>{: site['category'] :}</td>
+                    <td>
+                        <select v-model="site['category']" @change="updateField('site.category',site['category'])">
+                            <option>I</option>
+                            <option>II</option>
+                            <option>III</option>
+                        </select>
+                    </td>
+                    <!-- <td>{: site['category'] :}</td> -->
                     <th>Block</th>
                     <td>{: site['block'] :}</td>
                 </tr>
@@ -81,16 +96,25 @@
             <table class="comparetab">
                 <thead>
                     <th>Particular</th>
-                    <th>Surveyed</th>
-                    <th>Executed</th>
-                    <th>S-E</th>
-                    <th><button :disabled="!reqUpdate || noEdit" @click="updateQty">update</button>
+                    <th><a :href="'/admin/work/surveyqty/' + site['survey_id']" target="_blank">
+                            Surveyed
+                        </a>
                     </th>
+                    <th>
+                        <a :href="p_url" target="_blank">
+                            Executed
+                        </a>
+                    </th>
+                    <th>S-E</th>
+                    <!-- <th><button :disabled="!reqUpdate || noEdit" @click="updateQty">update</button>
+                    </th> -->
+                    <!-- <th></th>
+                    <th></th> -->
                 </thead>
                 <tbody>
                     <template>
-                        <Quant v-for="(quant,index) in quants" v-bind:key="index" :qty="quant"
-                            v-on:update="addFieldValue" v-on:undo="undo" :disabled="noEdit">
+                        <Quant v-for="(quant,index) in quants" v-bind:key="index" :qty="quant" v-on:update="updateField"
+                            v-on:undo="undo" :disabled="noEdit">
                         </Quant>
                     </template>
                 </tbody>
@@ -133,20 +157,25 @@
                     <td>{: qty['surveyed'] :}</td>
                     <td><input v-model="executed" type="number" :disabled="disabled || !qty['meta']['dbfield']['executed']"></td>
                     <td>{: (qty['surveyed'] - executed).toFixed(3) :}</td>
-                    <td><button v-if="valueChanged" @click="undo"  :disabled="disabled">undo</button></td>
+                    <td><button  @click="undo"  :disabled="!valueChanged">undo</button></td>
+                    <td><button  @click="update"  :disabled="!valueChanged">update</button></td>
                 </tr>`,
             methods: {
                 undo: function () {
                     this.executed = this.qty['executed'];
                     this.$emit('undo', this.field);
                     this.valueChanged = false;
+                },
+                update: function () {
+                    this.$emit('update', this.field, this.executed);
+                    this.valueChanged = false;
                 }
             },
             watch: {
                 executed: function (newValue, oldValue) {
                     this.valueChanged = this.qty['executed'] != this.executed;
-                    if (this.valueChanged)
-                        this.$emit('update', this.field, newValue);
+                    //if (this.valueChanged)
+                    //    this.$emit('update', this.field, newValue);
                 }
             }
         }

@@ -54,9 +54,13 @@ tbody th {
 } */
 
 /* th { */
-    /* max-width: 6em; */
-    /* text-overflow: clip; */
-    /* text-orientation: upright; */
+
+/* max-width: 6em; */
+
+/* text-overflow: clip; */
+
+/* text-orientation: upright; */
+
 /* } */
 
 table td {
@@ -67,18 +71,22 @@ table td {
     padding: 4px 4px;
 }
 
+.info {
+    background-color: rgba(0, 0, 255, 0.336);
+}
+
 .success, .good {
-    color: green;
+    background-color: rgba(0, 128, 0, 0.486);
 }
 
 .error {
-    color: red;
-    background-color: yellow;
+    background-color: rgba(255, 0, 0, 0.459);
+    /* background-color: yellow; */
 }
 
 .warning {
-    color: yellow;
-    background-color: grey;
+    background-color: rgba(179, 118, 38, 0.336);
+    /* background-color: grey; */
 }
 
 .flash {
@@ -153,10 +161,13 @@ ul {
 }
 
 tr:hover {
-    background-color: azure;
-    color: green;
+    /* background-color: rgba(240, 255, 255, 0.377); */
+    /* color: green; */
     /* font-weight: bold; */
     /* font-size: 1.2em; */
+    box-shadow: 0 0 .5px 1px blue;
+    /*z-index: 1000; */
+    /* border: 2px dotted purple; */
 }
 
 th, td {
@@ -318,13 +329,13 @@ small {
     /* vertical-align: middle; */
     padding: 2px;
     border-left: 1px solid black;
+    resize: horizontal;
 }
 
 .reviewdoc>object {
     width: 120vh;
     height: 100vh;
 }
-
 
 .message {
     background-color: rgb(228, 159, 241);
@@ -385,17 +396,35 @@ table input[type="file"] {
 .comparetab {
     width: 98%;
     margin: auto;
+    resize: horizontal;
+    overflow-y: auto;
 }
+
+/* .comparetab td {
+    max-width: 0px;
+} */
 
 /* td[value] {
     text-align: right;
 } */
+
 /* make the cells output their value */
+
 td[value]:after {
     content: attr(value);
 }
 
 /* make debit amounts show up in red */
+
 td[value^="-"]:after {
     color: rgb(243, 220, 220);
+}
+
+.reviewTable {
+    width: 98%;
+    margin: auto;
+}
+
+.reviewData{
+    overflow: scroll;
 }

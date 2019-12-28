@@ -23,33 +23,33 @@ DIVISIONS_ALLOWED = [x.upper() for x in (
     'Ukhrul')]
 
 PROGRESS_QFIELDS = [
-                    'dtr_100',
-                    'dtr_63',
-                    'dtr_25',
-                    'ht',
-                    'ht_conductor',
-                    'lt_3p',
-                    'lt_1p',
-                    'pole_ht_8m',
-                    'pole_lt_8m',
-                    'pole_9m',
-                    ]
+    'dtr_100',
+    'dtr_63',
+    'dtr_25',
+    'ht',
+    'ht_conductor',
+    'lt_3p',
+    'lt_1p',
+    'pole_ht_8m',
+    'pole_lt_8m',
+    'pole_9m',
+]
 
 SURVEY_QFIELDS = PROGRESS_QFIELDS
 
 REVIEW_QFIELDS = [
-                    'dtr_100',
-                    'dtr_63',
-                    'dtr_25',
-                    'ht',
-                    'ht_conductor',
-                    'lt_3p',
-                    'lt_1p',
-                    'pole_ht_8m',
-                    'pole_lt_8m',
-                    'pole_9m',
-                    'pole_8m',
-                    ]
+    'dtr_100',
+    'dtr_63',
+    'dtr_25',
+    'ht',
+    'ht_conductor',
+    'lt_3p',
+    'lt_1p',
+    'pole_ht_8m',
+    'pole_lt_8m',
+    'pole_9m',
+    'pole_8m',
+]
 
 DPR_INFRA_FIELDS = [
     'ht',
@@ -59,3 +59,13 @@ DPR_INFRA_FIELDS = [
     'dtr_63',
     'dtr_25',
 ]
+
+
+SHIFTED_QFIELDS = ['acsr',
+                   'cable_3p',
+                   'cable_1p',
+                   'pole_8m',
+                   'pole_9m',
+                   'dtr_100',
+                   'dtr_63',
+                   'dtr_25']

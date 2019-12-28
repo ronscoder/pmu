@@ -1,0 +1,79 @@
+<div :class="{'filterShow': filterShow, 'filterMini':!filterShow}">
+    <div @click="filterShow=!filterShow">
+        <strong>Selection fields</strong>
+    </div>
+    <hr>
+    <div class="nav">
+        <button @click="showSummary = !showSummary" style="width: 10em;">{: showSummary?"Details": "Summary"
+            :}</button>
+    </div>
+    <form @submit.prevent="load(1)" style="display: flex; flex-direction:column;">
+        {% csrf_token %}
+        <label>District</label>
+        <!-- <input type="text" name="district" id="district" v-model="district"><br> -->
+        <select name="district" id="district" v-model="district">
+            <option value="">--</option>
+            {% for district in districts %}
+            <option value="{{district}}">{{district}}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <label>Division</label>
+        <select name="division" id="division" v-model="division">
+            <option value="">--</option>
+            {% for division in divisions %}
+            <option value="{{division}}">{{division}}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <label>Village</label>
+        <input type="text" name="village" id="village" v-model="village"><br>
+        <label>census + habitation</label>
+        <input type="text" name="habid" id="habid" v-model="habid" autofocus><br>
+        <label>Hab id</label>
+        <input type="text" name="habid_exact" id="habid_exact" v-model="habid_exact" autofocus><br>
+        <div style="display: flex; flex-direction:row;">
+            <div style="display: flex; flex-direction:column;">
+                <label><input type="radio" name="status" value='any' v-model="status">any</label>
+                <label><input type="radio" name="status" value='completed' v-model="status">Completed</label>
+                <label><input type="radio" name="status" value='ongoing' v-model="status">Ongoing</label>
+                <label><input type="radio" name="status" value='not started' v-model="status">Not
+                    started</label>
+            </div>
+            <div style="display: flex; flex-direction:column;">
+                <label><input type="radio" name="review" value='any' v-model="review">any</label>
+                <label><input type="radio" name="review" value='ok' v-model="review">Reviewed Ok</label>
+                <label><input type="radio" name="review" value='not reviewed' v-model="review">Not reviewed</label>
+                <label><input type="radio" name="review" value='issue' v-model="review">Issue</label>
+            </div>
+        </div>
+        <br>
+        <div>
+            <label><input type="radio" name="cert" value='any' v-model="cert">w/w/o cert</label>
+            <label><input type="radio" name="cert" value='True' v-model="cert">w/ cert</label>
+            <label><input type="radio" name="cert" value='False' v-model="cert">w/o cert</label>
+        </div>
+        <div>
+            <label><input type="radio" name="doc" value='any' v-model="withDoc">w/w/o doc</label>
+            <label><input type="radio" name="doc" value='withdoc' v-model="withDoc">w/ doc</label>
+            <label><input type="radio" name="doc" value='withoutdoc' v-model="withDoc">w/o doc</label>
+        </div>
+        <div>
+            <label><input type="radio" name="survey" value='any' v-model="survey">any</label>
+            <label><input type="radio" name="survey" value='approved' v-model="survey">approved</label>
+            <label><input type="radio" name="survey" value='not approved' v-model="survey">not approved</label>
+        </div>
+        <label><input type="checkbox" name="additional" v-model="additional">Additonal only</label>
+        <br>
+        <input type="submit"
+            :disabled="!habid && !district && !division && !village &&!habid_exact && status=='any' && survey=='any'"
+            value="Load">
+    </form>
+    <div style="display: flex; justify-content:space-between;" v-if="!showSummary">
+        <a href="#sites">Sites</a>
+        <a href="#dpr">DPR</a>
+        <a href="#additional">Additional sites</a>
+        <a href="#survey">Survey</a>
+        <a href="#progress">Progress</a>
+    </div>
+</div>

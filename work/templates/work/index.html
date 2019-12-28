@@ -3,16 +3,18 @@
 {% block content %}
 {% include "work/_resolutionbox.html"%}
 <div id="index">
-    <div v-if="output" style="overflow: scroll; max-height: 20ch;">
+    <div v-if="output">
         <b>Output</b><br>
-        <label>Issues only <input type="checkbox" v-model="issue_only"></label>
-        <ol style="list-style-position: unset; list-style:none;">
-            <li v-for="item in output" :class="item['class']"
-                v-if="!issue_only || (issue_only && item['class']!='success')">
-                {: item['text'] :}
-            </li>
+        <label>Errors only <input type="checkbox" v-model="errors_only"></label>
+        <label>warnings only <input type="checkbox" v-model="warnings_only"></label>
+        <ol style="list-style-position: unset; list-style:none;overflow: scroll; max-height: 20ch;">
+            <table>
+                <tr v-for="item in output" :class="item['class']"
+                    v-if="(errors_only && item['class']=='error') || (warnings_only && item['class']=='warning') || (!errors_only && !warnings_only)">
+                    <td>{: item['text'] :}</td>
+                </tr>
+            </table>
         </ol>
-
     </div>
     <button v-on:click="toggleAdmin">Admin on/off</button>
     <div v-if="admin" class="section">
@@ -52,26 +54,22 @@
     <br>
     <div class="section">
         <h4>Update progress</h4>
-        <form id="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
             {% csrf_token %}
             <input hidden name='path' value="files/progress_report.xlsx">
             <input hidden name='filename' value="template_progress_report.xlsx">
             <input hidden name='tabtype' value="template_progress_report">
             <input type="submit" value="Download Report Template">
         </form>
-
-        <form action="{% url 'work:updateProgress'%}" method="post" enctype="multipart/form-data">
-            <!-- <form action="{% url 'work:validate_progress'%}" method="post" enctype="multipart/form-data"> -->
+        <form @submit.prevent="updateProgress(false)">
             {% csrf_token %}
             <p>Select update file</p>
             <label for="changeid">Update id</label>
             <input type="text" name="updateid" v-model="updateid">
             <input type="file" name="file" accept=".xlsx" v-on:change="handleFileUpload" ref="file">
+            <button v-on:click="updateProgress(true)" id="validate_progress" v-bind:disabled="!if_file">Check</button>
             <input type="submit" value="update" v-bind:disabled="!if_file">
         </form>
-
-        <button v-on:click="validate_report()" id="validate_progress"
-            v-bind:disabled="!if_file">Check</button>
     </div>
     <!-- Undo -->
     <hr>
@@ -109,22 +107,24 @@
         </form>
     </div>
     <div>
+        <div v-if="ifloading">
+            Loading...
+        </div>
         <b>Progress</b>
-        {{data | safe}}
+        <span v-html="data"></span>
+    </div>
+    <a name="recent_changes"></a>
+    <div class="section">
+        <p><b>Last changes</b></p>
+        <ul style="list-style: none;">
+            <li v-for="log in logs">
+                {: log['created_at'].substring(0,10) :} {: log['changeid'] :} - {: log['model'] :}
+            </li>
+        </ul>
     </div>
 </div>
 {% endblock %}
 {% block right %}
-<a name="recent_changes"></a>
-<div class="section">
-    <p><b>Last changes</b></p>
-    <ul style="list-style: none;">
-        {% for log in logs %}
-        <li>{{log.created_at | date}}: {{log.changeid}} - {{log.model}}
-        </li>
-        {% endfor %}
-    </ul>
-</div>
 {% endblock %}
 {% block script %}
 <script>
@@ -138,33 +138,54 @@
             hasOutput: false,
             if_file: false,
             updateid: "",
-            issue_only: false
+            errors_only: false,
+            warnings_only: false,
+            data: null,
+            logs: null,
+            ifloading: false
+        },
+        mounted() {
+            this.getData();
         },
         methods: {
+            getData: function () {
+                this.ifloading = true;
+                axios.get("{% url 'work:api_data' %}").then(response => {
+                    this.data = response.data['data'];
+                    this.logs = response.data['logs'];
+                    tdcss();
+                    //console.log(this.logs);
+                    this.ifloading = false;
+                });
+            },
             toggleAdmin: function () {
                 this.admin = !this.admin
             },
-            validate_report: function () {
-                this.output = null
+            updateProgress: function (isTest) {
+                ifloading = true;
+                this.output = null;
                 let file = this.$refs.file.files[0];
                 let formdata = new FormData();
                 formdata.append('file', file);
+                formdata.append('updateid', this.updateid);
+                formdata.append('isTest', isTest);
                 let csrftoken = Cookies.get('csrftoken');
-                axios.post("{% url 'work:validate_progress' %}", formdata,
+                axios.post("{% url 'work:updateProgress' %}", formdata,
                     {
                         headers: {
                             'Content-Type': 'multipart/form-data',
                             'X-CSRFToken': csrftoken
                         }
                     }
-                )
-                    .then(response => {
-                        this.output = response.data.data;
-                        this.issue_only = false;
-                    })
-                    .catch(ex => {
-                        console.log(ex);
-                    });
+                ).then(response => {
+                    this.output = response.data['status'];
+                    console.log(response.data);
+                    this.errors_only = false;
+                    ifloading = false;
+                }).catch(ex => {
+                    console.log(ex);
+                    ifloading = false;
+                });
             },
             handleFileUpload: function () {
                 if (this.$refs.file.files[0]) {
