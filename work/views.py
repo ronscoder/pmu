@@ -18,7 +18,8 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import Permission, User, Group
 from django.contrib.auth.decorators import login_required
 import work.controller as controller
-import pdb;
+import pdb
+
 
 @login_required(login_url='/admin/login/?next=/work/detail/')
 @ensure_csrf_cookie
@@ -89,13 +90,15 @@ def api_markSiteOrigin(request):
     pickedSite = request.POST['pickedSite']
     checkedSites = request.POST['checkedSites'].split(",")
     # print(checkedSites)
-    site = Site.objects.get(id=pickedSite)
-    sites = Site.objects.filter(id__in=checkedSites)
+    # site = Site.objects.get(id=pickedSite)
+    # sites = Site.objects.filter(id__in=checkedSites)
     # print(siteExtras.values())
-    for s in sites:
-        s.origin = site
-        s.save()
-    return JsonResponse({'status': 'success'})
+    res = None
+    for s in checkedSites:
+        # s.origin = site
+        # s.save()
+        res = controller.switchSite(s, pickedSite)
+    return JsonResponse({'status': res})
 
 
 def api_mergeToSite(request):
@@ -179,7 +182,8 @@ def api_getSite(request):
     with_doc = request.POST.get('with_doc', 'any')
     cert = request.POST.get('cert', None)
     survey = request.POST.get('survey', None)
-    hab_id = request.POST['habid']
+    hab_id = request.POST.get('habid', None)
+    # nonDpr = request.POST.get('non_dpr', None)
     if(hab_id):
         filterString['hab_id__icontains'] = hab_id
     hab_id_exact = request.POST['habid_exact']
@@ -191,7 +195,7 @@ def api_getSite(request):
     division = request.POST['division']
     if(division):
         filterString['division'] = division
-    village = request.POST.get('village',None)
+    village = request.POST.get('village', None)
     village = formatString(village)
     if(village):
         filterString['village__icontains'] = village
@@ -203,33 +207,48 @@ def api_getSite(request):
     filterString2 = filterString.copy()
     if(status):
         filterString1['progressqty__status'] = status
-        filterString2['progressqtyextra__status'] = status
+        # filterString2['progressqtyextra__status'] = status
     if(review):
         filterString1['progressqty__review'] = review
-        filterString2['progressqtyextra__review'] = review
+        # filterString2['progressqtyextra__review'] = review
     if(with_doc == 'withdoc'):
         filterString1['progressqty__document__gt'] = 0
-        filterString2['progressqtyextra__document__gt'] = 0
+        # filterString2['progressqtyextra__document__gt'] = 0
     if(with_doc == 'withoutdoc'):
         filterString1['progressqty__document__lt'] = 1
-        filterString2['progressqtyextra__document__lt'] = 1
+        # filterString2['progressqtyextra__document__lt'] = 1
     if(cert):
         filterString1['progressqty__cert'] = cert
-        filterString2['progressqtyextra__cert'] = cert
+        # filterString2['progressqtyextra__cert'] = cert
     if(survey):
-        if(survey=='approved'):
-            filterString1['surveyqty__approval_status'] = 'approved'
+        if(survey == 'approved'):
+            filterString1['surveyqty__status'] = 'approved'
         else:
-            excludeString['surveyqty__approval_status'] = 'approved'
-    
+            excludeString['surveyqty__status'] = 'approved'
+
     if(additional == 'additional'):
-        sites = Site.objects.none()
+        filterString1['surveyqty'] = None
+
+    sites = Site.objects.filter(**filterString1).exclude(**excludeString)
+
+    # siteExtras = SiteExtra.objects.filter(**filterString2)
+    # if(siteExtras):
+    #     sites |= Site.objects.filter(siteextra__site in siteExtras)
+
+    if(sites):
+        siteExtras = SiteExtra.objects.filter(site__in=sites)
     else:
-        sites = Site.objects.filter(**filterString1).exclude(**excludeString)
+        siteExtras = SiteExtra.objects.filter(**filterString2)
+    # if(siteExtras):
+    #     sxs = []
+    #     for sx in siteExtras:
+    #         sxs.append(sx.site.id)
+    #     sites |= Site.objects.filter(id__in = sxs)
 
-    siteExtras = SiteExtra.objects.filter(**filterString2)
+    # sites = Site.objects.filter(**filterString1).exclude(**excludeString)
 
-    dprQty = DprQty.objects.filter(site__in=sites, has_infra=True)
+    # dprQty = DprQty.objects.filter(site__in=sites, has_infra=True)
+    dprQty = DprQty.objects.filter(site__in=sites)
     dfdprQty = pd.DataFrame(dprQty.values())
     addField(dfdprQty, sites)
 
@@ -237,7 +256,7 @@ def api_getSite(request):
     dfProgressQty = pd.DataFrame(progressSites.values())
     addField(dfProgressQty, sites)
 
-    progressNonSurvey = progressSites.filter(site__surveyqty = None)
+    progressNonSurvey = progressSites.filter(site__surveyqty=None)
     dfProgressQtyNonSurvey = pd.DataFrame(progressNonSurvey.values())
     addField(dfProgressQtyNonSurvey, sites)
 
@@ -253,10 +272,10 @@ def api_getSite(request):
     addField(dfsurveyQtys, sites)
 
     ssum['Surveyed habs'] = len(dfsurveyQtys)
-    for s in surveyQtys.values('approval_status').annotate(count=Count('approval_status')):
+    for s in surveyQtys.values('status').annotate(count=Count('status')):
         # if(s['site__category']):
-        ssum['▷ ' + s['approval_status']] = s['count']
-    
+        ssum['▷ ' + s['status']] = s['count']
+
     for s in surveyQtys.values('site__category').annotate(count=Count('site__category')):
         if(s['site__category']):
             ssum['Surveyed habs cat-' + s['site__category']] = s['count']
@@ -268,7 +287,8 @@ def api_getSite(request):
 
     # ssum['STATUS ({} habs)'.format(len(progressSites) +
     #                                len(progressAddtionalSites))] = '▪️'*3
-    ssum['STATUS ({} Approved habs)'.format(surveyQtys.filter(approval_status='approved').count())] = '▪️'*3
+    ssum['STATUS ({} Approved habs)'.format(
+        surveyQtys.filter(status='approved').count())] = '▪️'*3
     sqty = pd.Series()
     for status in progressSites.values('status').distinct():
         status = status['status']
@@ -329,9 +349,9 @@ def api_getSite(request):
             'siteAdditional': list(siteExtras.values()),
             'dprData': list(dfdprQty.T.to_dict().values()),
             'surevyQtys': list(dfsurveyQtys.T.to_dict().values()),
-            'progressSites': list(dfProgressQty.fillna(0).T.to_dict().values()),
-            'progressQtyNonSurvey': list(dfProgressQtyNonSurvey.fillna(0).T.to_dict().values()),
-            'progressAddtionalSites': list(dfProgressQtyX.fillna(0).T.to_dict().values()),
+            'progressSites': list(dfProgressQty.fillna('').T.to_dict().values()),
+            'progressQtyNonSurvey': list(dfProgressQtyNonSurvey.fillna('').T.to_dict().values()),
+            'progressAddtionalSites': list(dfProgressQtyX.fillna('').T.to_dict().values()),
             'summary': summary,
         })
 
@@ -339,6 +359,7 @@ def api_getSite(request):
 @ensure_csrf_cookie
 def index(request):
     return render(request, "work/index.html")
+
 
 def undoextra(request):
     if(request.method == 'POST'):
@@ -350,16 +371,97 @@ def undoextra(request):
         return render(request, "work/index.html")
 
 
+def updateProgress2(request):
+    return render(request, 'work/progress_validation.html')
+
+
+def updateConfirmation(request):
+    if(not len(request.FILES)):
+        return JsonResponse({'status': [{'class': 'error', 'text': 'File not selected'}]})
+    file = request.FILES['file']
+    updateid = request.POST.get('updateid', None)
+    if(not updateid):
+        updateid = file.name
+    status = []
+    hasError, dfstatus, dfProgress = controller.validateProgressFile(file)
+    updated = False
+    if(hasError):
+        status.extend(dfstatus)
+        # print(status)
+        return JsonResponse({
+            'status': 'error', 'text': "; ".join([st['text'] for st in status])})
+    # qfields = ['ht','ht_conductor','lt_1p','lt_3p','dtr_25','dtr_63','dtr_100','pole_lt_8m','pole_ht_8m','pole_9m']
+    vfields = ['ht', 'pole_ht_8m', 'lt_3p', 'lt_1p',
+               'pole_lt_8m', 'dtr_100', 'dtr_63', 'dtr_25', 'status', 'remark']
+    headerfields = ['village', 'census', 'habitation']
+    items = []
+    try:
+        for index, row in dfProgress.iterrows():
+            item = {}
+            hasError = False
+            site, survey, progress = controller.getSiteData(
+                census=row['census'], habitation=row['habitation'])
+
+            if(not site):
+                item['site'] = {'error': "site not found", 'data': {f: getattr(row, f, 0) for f in headerfields}}
+                hasError = True
+            else:
+                item['site'] = {f: getattr(
+                    site, f, 0) for f in headerfields}
+
+            if(not progress):
+                hasError = True
+                item['progress'] = {'error': "progress not found"}
+            else:
+                item['progress'] = {f: getattr(progress, f, 0) for f in vfields}
+                item['progress']['remark'] = " | ".join([x or "--" for x in [progress.remark, progress.review, progress.review_text]])
+                item['pid'] = progress.id
+                item['review_status'] = progress.review
+                item['doc'] = str(progress.document)
+
+            if(not survey):
+                hasError = True
+                item['survey'] = {'error': "survey not found"}
+            else:
+                item['survey'] = {f: getattr(survey, f, 0) for f in vfields}
+
+            item['update'] = {f: getattr(row, f, 0) for f in vfields}
+            item['hasError'] = hasError
+            # if(progress):
+            item['changes'] = {f: getattr(row, f, 0) == getattr(progress, f, 0) for f in vfields}
+            items.append(item)
+        return JsonResponse({'status': 'ok', 'items': items, 'headerfields': headerfields, 'vfields': vfields})
+    except Exception as ex:
+        return JsonResponse({'status': 'error', 'text': ex.__str__()})
+
+import json
+def updateHabProgress(request):
+    pid = request.POST['pid']
+    pdata = request.POST['progress']
+    pdata = json.loads(pdata) 
+    print('to update', pdata)
+    try:
+        progress = ProgressQty.objects.get(id=pid)
+        for f in pdata:
+            setattr(progress, f, pdata[f])
+        progress.save()
+        progress.remark = " | ".join([x or "--" for x in [progress.remark, progress.review, progress.review_text]])
+        vfields = ['ht', 'pole_ht_8m', 'lt_3p', 'lt_1p',
+               'pole_lt_8m', 'dtr_100', 'dtr_63', 'dtr_25', 'status', 'remark']        
+        return JsonResponse({'status': 'success', 'progress': {f: getattr(progress, f, 0) for f in vfields}})
+    except Exception as ex:
+        return JsonResponse({'status': 'error', 'text': ex.__str__()})
+
 def updateProgress(request):
     if(request.method == 'POST'):
         if(len(request.FILES)):
             file = request.FILES['file']
-            isTest = request.POST.get('isTest',False)
-            if(isTest=='false'):
+            isTest = request.POST.get('isTest', False)
+            if(isTest == 'false'):
                 isTest = False
             elif(isTest == 'True'):
                 isTest = True
-            updateid = request.POST.get('updateid',None)
+            updateid = request.POST.get('updateid', None)
             if(not updateid):
                 updateid = file.name
             status = controller.UpdateProgress(file, updateid, isTest)
@@ -369,12 +471,14 @@ def updateProgress(request):
             return JsonResponse({
                 'status': [{'class': 'error', 'text': 'File not selected'}]})
     else:
-        return JsonResponse({'status':'somethings not right'})
+        return JsonResponse({'status': 'somethings not right'})
+
 
 def handle_uploaded_file(f):
     with open('update.xlsx', 'wb+') as destination:
         for chunk in f.chunks():
             destination.write(chunk)
+
 
 def createSite(**kwargs):
     village = formatString(kwargs['village'])
@@ -384,7 +488,8 @@ def createSite(**kwargs):
     division = formatString(kwargs['division'])
     print("creating site {}".format(kwargs))
     try:
-        recq = Site.objects.filter(hab_id = getHabID(census=census, habitation=habitation))
+        recq = Site.objects.filter(hab_id=getHabID(
+            census=census, habitation=habitation))
         if(recq.exists()):
             return recq[0]
         rec = Site()
@@ -398,6 +503,7 @@ def createSite(**kwargs):
     except Exception as ex:
         print('Error: '.format(ex.__str__()))
         raise ex
+
 
 def addSite(request):
     if(request.method == 'POST'):
@@ -454,10 +560,11 @@ def uploadSurvey(request):
                     rec = createSite(**row)
                     qty, created = SurveyQty.objects.get_or_create(site=rec)
                 except Exception as ex:
-                    messages.error(request, 'site: {}, error: {}'.format([row['census'], row['habitation']], ex.__str__()))
+                    messages.error(request, 'site: {}, error: {}'.format(
+                        [row['census'], row['habitation']], ex.__str__()))
                     continue
                 qty.ht = row['ht']
-                qty.ht_conductor = getattr(row,'ht_conductor',qty.ht * 3.15)
+                qty.ht_conductor = getattr(row, 'ht_conductor', qty.ht * 3.15)
                 qty.lt_1p = row['lt1']
                 qty.lt_3p = row['lt3']
                 qty.dtr_25 = row['dtr_25kva']
@@ -467,13 +574,14 @@ def uploadSurvey(request):
                 qty.pole_ht_8m = row['pole_ht_8m']
                 qty.pole_lt_8m = row['pole_lt_8m']
                 qty.pole_9m = row['pole_9m']
-                qty.approval_status = row['status']
+                qty.status = row['status']
                 qty.remark = row['remark']
                 qty.changeid = file
                 try:
                     qty.save()
                 except Exception as ex:
-                    messages.error(request,'Error {}: '.format(rec, ex.__str__()))        
+                    messages.error(
+                        request, 'Error {}: '.format(rec, ex.__str__()))
                     continue
             messages.success(request, 'Survey Report updated')
         else:
@@ -495,12 +603,19 @@ def loadDprQty(request):
                     hab_id = getHabID(
                         census=row['census'], habitation=row['habitation'])
                     print('Updating site {}'.format(hab_id))
-                    site = Site.objects.get(hab_id=hab_id)
-                    qty, created = DprQty.objects.get_or_create(
-                        site=site, category=row['category'],
-                        mode=row['mode'],
-                        status=row['status']
-                    )
+                    # print(row)
+                    # site = Site.objects.get(hab_id=hab_id)
+                    site, additional = controller.getSite(
+                        census=row['census'], habitation=row['habitation'])
+                    qty = DprQty()
+                    # qty, created = DprQty.objects.get_or_create(
+                    #     site=site, category=row['category'],
+                    #     mode=row['mode'],
+                    #     status=row['status'])
+                    qty.site = site
+                    qty.category = row['category']
+                    qty.status = row['status']
+                    qty.mode = row['mode']
                     qty.hh_bpl = row['hh_bpl']
                     qty.hh_bpl_metered = row['hh_bpl_metered']
                     qty.hh_metered = row['hh_metered']
@@ -514,12 +629,12 @@ def loadDprQty(request):
                     qty.dtr_100 = row['dtr_100']
                     qty.dtr_63 = row['dtr_63']
                     qty.dtr_25 = row['dtr_25']
+                    print(vars(qty))
                     qty.save()
                     messages.success(
                         request, 'DPR Site Qty updated: {}'.format(site))
             except Exception as ex:
-                messages.error(request, 'Error DPR Qty site {}: {}'.format(
-                    row['hab_id'], ex.__str__()))
+                messages.error(request, 'Error DPR Qty {}'.format(ex.__str__()))
             messages.success(request, 'DPR HH updated')
     else:
         messages.error(request, 'No DPR Qty data file in legacy')
@@ -579,7 +694,7 @@ def getSummaryShifted(model):
 def api_data(request):
     data = controller.getDistrictProgressSummary()
     logs = controller.getLog()
-    return JsonResponse({'data': data, 'logs':logs})
+    return JsonResponse({'data': data, 'logs': logs})
 
 
 def downloadFile(request):
@@ -594,27 +709,36 @@ def downloadFile(request):
         # mime_type, _ = mimetypes.guess_type(fl_path)
         # response = HttpResponse(fl, content_type=mime_type)
         response = HttpResponse(fl, content_type='application/ms-excel')
+        # response = HttpResponse(fl, content_type='Document')
         response['Content-Disposition'] = "attachment; filename=%s" % filename
         return response
+
+
+def survey(request, site_id):
+    print(site_id)
+    site = Site.objects.get(id=site_id)
+    pqty, created = SurveyQty.objects.get_or_create(site=site)
+    return HttpResponseRedirect("/admin/work/surveyqty/" + str(pqty.id))
+
 
 def progress(request, site_id):
     print(site_id)
     site = Site.objects.get(id=site_id)
     pqty, created = ProgressQty.objects.get_or_create(site=site)
     # prefill data from survey
-    sqty = SurveyQty.objects.filter(site=site)
-    if(created and sqty.exists()):
-        sqty = sqty[0]
-        pqty.ht = sqty.ht
-        pqty.pole_ht_8m = round(14*sqty.ht)
-        pqty.lt_3p = sqty.lt_3p
-        pqty.lt_1p = sqty.lt_1p
-        pqty.pole_lt_8m = round(22*sqty.lt_3p + 25*sqty.lt_1p)
-        pqty.dtr_100 = sqty.dtr_100
-        pqty.dtr_63 = sqty.dtr_63
-        pqty.dtr_25 = sqty.dtr_25
-        pqty.status = 'ongoing'
-        pqty.save()
+    # sqty = SurveyQty.objects.filter(site=site)
+    # if(created and sqty.exists()):
+    #     sqty = sqty[0]
+    #     pqty.ht = sqty.ht
+    #     pqty.pole_ht_8m = round(14*sqty.ht)
+    #     pqty.lt_3p = sqty.lt_3p
+    #     pqty.lt_1p = sqty.lt_1p
+    #     pqty.pole_lt_8m = round(22*sqty.lt_3p + 25*sqty.lt_1p)
+    #     pqty.dtr_100 = sqty.dtr_100
+    #     pqty.dtr_63 = sqty.dtr_63
+    #     pqty.dtr_25 = sqty.dtr_25
+    #     pqty.status = 'ongoing'
+    #     pqty.save()
 
     return HttpResponseRedirect("/admin/work/progressqty/" + str(pqty.id))
 
@@ -641,9 +765,9 @@ def api_load_review(request):
         progress = ProgressQtyExtra.objects.get(id=pid)
     else:
         progress = ProgressQty.objects.get(id=pid)
-        surveyed = SurveyQty.objects.get(site=progress.site)
+        surveyed = SurveyQty.objects.filter(site=progress.site).first()
     site = progress.site
-    site.survey_id = surveyed.id
+
     if(not site):
         msg.append({
             'type': 'error',
@@ -652,27 +776,28 @@ def api_load_review(request):
         msg.append({
             'type': 'error',
             'text': 'Not a surveyed habitation!'})
+    else:
+        site.survey_id = surveyed.id
     if(not progress):
         msg.append({
             'type': 'error',
             'text': 'No progress data!'})
     if(site == None or surveyed == None or progress == None):
         valid = False
-    else:
+    # else:
         # REVIEW_QFIELDS.sort()
-        for f in REVIEW_QFIELDS:
-            vsurvey = getattr(surveyed, f) if (not surveyed == None) else 0
-            vexecuted = getattr(progress, f) if (not progress == None) else 0
-            quants.append({
-                'field': f,
-                'surveyed': vsurvey,
-                'executed': vexecuted,
-                'meta': {'dbfield':{'surveyed': f in vars(surveyed), 'executed': f in vars(progress)}}
-                # 'diff': round(getattr(surveyed, f) - getattr(progress, f), 2)
-            })
+    for f in REVIEW_QFIELDS:
+        vsurvey = getattr(surveyed, f, 0) if (not surveyed == None) else 0
+        vexecuted = getattr(progress, f, 0) if (not progress == None) else 0
+        quants.append({
+            'field': f,
+            'surveyed': vsurvey,
+            'executed': vexecuted,
+            'meta': {'dbfield': {'surveyed': f in vars(surveyed) if surveyed else False, 'executed': f in vars(progress)}}
+            # 'diff': round(getattr(surveyed, f) - getattr(progress, f), 2)
+        })
     # if(progress):
     #     rlink = ResolutionLink.objects.get(object_id=progress.id, content_type__model=progress.__class__.__name__.lower())
-    print('getting data')
     return JsonResponse(
         {
             'valid': valid,
@@ -687,16 +812,23 @@ def api_load_review(request):
             'remark': progress.remark,
             'review_text': progress.review_text,
             'review': progress.review,
-            'approval': surveyed.approval_status if surveyed!=None else None,
+            'approval': surveyed.status if surveyed != None else None,
             # 'resolution': {'rid':rlink.resolution.id, 'rlinkid': rlink.id} if rlink else None,
             # 'model': progress.__class__.__name__.lower(),
         })
 
+
 import django.dispatch
 #: TODO make this transactional
+
+
 def api_updateExecQty(request):
     try:
-        value = request.POST['value']
+        x = request.POST['value']
+        try:
+            value = int(float(x)) if int(float(x)) == float(x) else float(x)
+        except:
+            value = x
         field = request.POST['field']
         pid = request.POST['pid']
         isAdditional = request.POST['isAdditional']
@@ -716,9 +848,9 @@ def api_updateExecQty(request):
             p = ProgressQtyExtra.objects.get(id=pid)
 
         for f in fields[:-1]:
-            p = getattr(p,f)
-        setattr(p, fields[-1], value) 
-        print('{} updated'.format(p))
+            p = getattr(p, f)
+        setattr(p, fields[-1], value)
+        print('{} updating'.format(p))
         p.save()
         msg.append(
             {'type': 'success', 'text': "{} updated '{}': {}".format(p, field, value)})
@@ -744,13 +876,14 @@ def api_create_resolution_link(request):
     model = request.POST.get('model', "")
     site = request.POST.get('site', "")
     resolution = Resolution()
-    resolution.statement = "{}\n\n[habid: {}]\n[link:{}]".format(statement, site, link)
+    resolution.statement = "{}\n\n[habid: {}]\n[link:{}]".format(
+        statement, site, link)
     resolution.resolution = resolutiontxt
     resolution.status = status
     resolution.save()
     msg = {
-    'type': 'success',
-    'text': 'Added to resolution: id {}'.format(resolution.id)
+        'type': 'success',
+        'text': 'Added to resolution: id {}'.format(resolution.id)
     }
     # rlink= ResolutionLink(object_id=id, content_type__model=model, resolution=resolution)
     # rlink.save()
@@ -764,16 +897,20 @@ def api_create_resolution_link(request):
 #     print(kwargs)
 # request_finished.connect(my_callback)
 
+
 import re
+
+
 def resolutionlinkedpage(request, id):
     # resolution = Resolution.objects.get(id=id)
-    resolution = get_object_or_404(Resolution,id=id)
-    statement=resolution.statement
-    link=None
-    g = re.search('\[link:(.*)\]',statement)
+    resolution = get_object_or_404(Resolution, id=id)
+    statement = resolution.statement
+    link = None
+    g = re.search('\[link:(.*)\]', statement)
     if(g):
         link = g.group(1)
-    return render(request, "work/resolution_page.html", {'res_link':'/admin/work/resolution/' + str(id), 'link': link})
+    return render(request, "work/resolution_page.html", {'res_link': '/admin/work/resolution/' + str(id), 'link': link})
+
 
 def resolution(request):
     return render(request, "work/resolution.html")
@@ -785,23 +922,26 @@ def variations(request, site_id):
     if(request.method == 'POST'):
         return JsonResponse({
             'variants': list(variants.values()),
-            'site': {f:getattr(site, f, 0) for f in vars(site) if f[0]!='_'},
-            })
+            'site': {f: getattr(site, f, 0) for f in vars(site) if f[0] != '_'},
+        })
     else:
         return render(request, "work/variations.html", {'site_id': site_id})
 
+
 def addVariation(request):
-    variant = request.POST.get('variant', None)
+    habitation = request.POST.get('habitation', None)
+    census = request.POST.get('census', None)
+    village = request.POST.get('village', None)
     site_id = request.POST.get('site_id', None)
-    if(not variant or not site_id):
+    if(not habitation or not site_id):
         return JsonResponse({'status': 'error'})
     site = Site.objects.filter(id=site_id).first()
     if(not site):
         return JsonResponse({'status': 'site not found'})
     xsite = SiteExtra()
-    xsite.village = site.village
-    xsite.census = site.census
-    xsite.habitation = variant
+    xsite.village = village or site.village
+    xsite.census = census or site.census
+    xsite.habitation = habitation
     xsite.district = site.district
     xsite.division = site.division
     xsite.category = site.category
@@ -809,4 +949,100 @@ def addVariation(request):
     xsite.site = site
     xsite.save()
     return JsonResponse({'status': 'done'})
+
+
+def api_switch_site(request):
+    from_site_id = request.POST.get('from_site_id', None)
+    to_site_id = request.POST.get('to_site_id', None)
+    res = controller.switchSite(from_site_id, to_site_id)
+    return JsonResponse({'status': res})
+
+
+def revertProgress(request):
+    pid = request.POST.get('pid', None)
+    if(not pid):
+        return JsonResponse({'status': 'progress id not found'})
+    progress = ProgressQty.objects.get(id=pid)
     
+
+def projectwise(request):
+    ps = ProgressQty.objects.all()
+    psv = ps.values('site__hab_id','site__district','site__village', 'site__census', 'site__habitation', *PROGRESS_QFIELDS, 'site__project__name', 'site__dprqty__has_infra', 'status', 'review')
+    df = pd.DataFrame(psv)
+    df.to_excel('outputs/project_hab_progress.xlsx')
+    
+    df['site__project__name'].fillna('extra',inplace=True)
+
+    dfsummaryDistrict = df.groupby(['site__district','site__project__name']).sum()
+    output = '<h2>Progress</h3>' + dfsummaryDistrict.to_html()
+    
+    dfProjectwise = df.groupby(['site__project__name']).sum()
+    output += '<hr>' + dfProjectwise.to_html()
+    # DPR
+    dpr = DprQty.objects.filter(has_infra=True)
+    dfD = pd.DataFrame(dpr.values('site__district', *PROGRESS_QFIELDS, 'site__project__name', 'has_infra'))
+    dfD['site__project__name'].fillna('extra',inplace=True)
+    dfDsummary = dfD.groupby(['site__project__name']).sum()
+    output += '<hr><h2>DPR</h2>' + dfDsummary.to_html()
+
+    loa = Loa.objects.all()
+    dfLoa = pd.DataFrame(loa.values(*PROGRESS_QFIELDS))
+    # dfDsummary = dfLoa.groupby(['area']).sum()
+    dfDsummary = dfLoa.sum().to_frame()
+    output += '<hr><h2>LOA</h2>' + dfDsummary.T.to_html()
+
+    scope = SurveyQty.objects.all()
+    dfD = pd.DataFrame(scope.values('site__district', *PROGRESS_QFIELDS, 'site__project__name'))
+    dfD['site__project__name'].fillna('extra',inplace=True)
+    dfDsummary = dfD.groupby(['site__project__name']).sum()
+    output += '<hr><h2>Scope</h2>' + dfDsummary.to_html()
+
+    return render(request, 'work/projectwise.html', {'data': output})
+
+def divisionwise(request):
+    groupby = ['site__district','site__division']
+    fields = [*groupby, *PROGRESS_QFIELDS]
+    output = ""
+
+    progress = ProgressQty.objects.all()
+    dfProgress = pd.DataFrame(progress.values(*fields))
+    dfProgressSummary = dfProgress.groupby(groupby).sum()
+    dfProgressSummary['index'] = 'Executed'
+    # output = '<h2>Progress</h3>' + dfProgressSummary.to_html()
+    
+    # DPR
+    dpr = DprQty.objects.filter(has_infra=True)
+    dfDpr = pd.DataFrame(dpr.values(*fields))
+    dfDprSummary = dfDpr.groupby(groupby).sum()
+    dfDprSummary['index'] = 'DPR'
+    # output += '<hr><h2>DPR</h2>' + dfDprSummary.to_html()
+
+    loa = Loa.objects.all()
+    dfLoa = pd.DataFrame(loa.values('area',*PROGRESS_QFIELDS))
+    dfLoa['site__district'] = dfLoa['area']
+    dfLoaSummary = dfLoa.groupby(['site__district']).sum()
+    dfLoaSummary['index'] = 'LOA'
+    # output += '<hr><h2>LOA</h2>' + dfLoaSummary.to_html()
+
+    scope = SurveyQty.objects.all()
+    dfscope = pd.DataFrame(scope.values(*fields))
+    dfscopesummary = dfscope.groupby(groupby).sum()
+    dfscopesummary['index'] = 'Scope'
+    # output += '<hr><h2>Scope</h2>' + dfscopesummary.to_html()
+
+    df = pd.concat([dfDprSummary, dfscopesummary, dfProgressSummary])
+    df = df.reset_index()
+    df = df.sort_values(['site__district','site__division'])
+    df = df.set_index(['site__district','site__division','index'])
+    output += df.to_html()
+
+    dfLoaSummary = dfLoaSummary.reset_index()
+    df = df.reset_index()
+    dfDistrict = pd.concat([dfLoaSummary, df])
+    dfDistrict = dfDistrict.groupby(['site__district','index']).sum()
+    # dfDistrict = dfDistrict.set_index(['site__district', 'index'])
+    # dfDistrict = dfDistrict.sort_values(['site__district','index'])
+    output += '<hr>' + dfDistrict.to_html()
+
+
+    return render(request, 'work/divisionwise.html', {'data': output})

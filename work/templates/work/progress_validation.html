@@ -1,7 +1,227 @@
 {% extends "work/base.html" %}
 {% load static %}
 {% block content %}
-{% for row in data %}
-<div>{{ row }}</div>
-{% endfor %}
+<div id="progress">
+    <div v-if="ifloading" class="loader">
+    </div>
+    <div class="section" style="display: flex; flex-direction:row;">
+        <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+            <strong>Update progress</strong>
+            {% csrf_token %}
+            <input hidden name='path' value="files/progress_report.xlsx">
+            <input hidden name='filename' value="template_progress_report.xlsx">
+            <input hidden name='tabtype' value="template_progress_report">
+            <input type="submit" value="Download Report Template">
+        </form>
+        <div style="width: 14px;"></div>
+        <form @submit.prevent="validation(false)">
+            {% csrf_token %}
+            <strong>Select update file</strong>
+            <label for="changeid">Update id</label>
+            <input type="text" name="updateid" v-model="updateid">
+            <input type="file" name="file" accept=".xlsx" v-on:change="handleFileUpload" ref="file">
+            <button v-on:click="validation(true)" id="validate_progress" v-bind:disabled="!if_file">Check</button>
+            <input type="submit" value="update" v-bind:disabled="!if_file">
+        </form>
+    </div>
+    <label><input type="checkbox" v-model="onlyIssue">Issue only</label>
+    <div v-if="status=='error'" class="error">
+        {:status_text:}
+    </div>
+    <div class="section" v-if="items">
+        <table>
+            <thead>
+                <tr>
+                    <th v-for="field in headerfields">{: field :}</th>
+                    <th>doctype</th>
+                    <th v-for="field in vfields">{: field :}</th>
+                    <th>Remark</th>
+                    <th>-</th>
+                    <th>-</th>
+                    <th>-</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="height: 4px; background-color:rgb(32, 32, 151)">
+
+                </tr>
+                <template v-for="(item, index) in items" :key="index" v-if="(onlyIssue & issues[index]) | !onlyIssue">
+                    <tr>
+                        <template v-if="'error' in item['site']">
+                            <td style="background-color:rgb(219, 134, 134); font-weight:bold"
+                                v-for="data in item['site']['data']">
+                                {:data:}</td>
+                        </template>
+                        <template v-else>
+                            <!-- <td rowspan="4" v-for="data in item['site']">{:data:}</td> -->
+                            <td style="background-color: rgb(153, 153, 245); font-weight:bold"
+                                v-for="data in item['site']">
+                                {:data:}
+                            </td>
+                        </template>
+                        <!-- </tr> -->
+                        <!-- <tr> -->
+                        <td>new</td>
+                        <template v-if="'error' in item['update']">
+                            <td :colspan="vfields.length">{:item['update']['error']:}
+                            </td>
+                        </template>
+                        <template v-else>
+                            <td v-for="(value, vidx) in item['update']" :class="{
+                good: item['changes'][vidx] | item['updated'] =='updated',
+                warning: !item['changes'][vidx]
+            }">{: value :}</td>
+                            <td rowspan="3">{:remarks[index]:}</td>
+                            <td rowspan="3">
+                                <div>{:item['updated']:}</div>
+                                <button @click="updateRecord(item['pid'],index)"
+                                    :disabled="item['hasError'] || item['review_status']=='ok'">update</button>
+                            </td>
+                            <td rowspan="3"><label><input type="checkbox" v-model="issues[index]">issue</label></td>
+                            <td rowspan="3"><input v-model="remarks[index]">
+                            </td>
+                        </template>
+                        <!-- </template> -->
+                    </tr>
+                    <tr>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <template v-if="'error' in item['progress']">
+                            <td>previous</td>
+                            <td :colspan="vfields.length" style="background-color: rgb(248, 163, 163);">{:item['progress']['error']:}
+                            </td>
+                        </template>
+                        <template v-else>
+                            <td>
+                                <a :href="'/work/review/'+ item['pid'] + '/0'" target="_blank">
+                                    previous <span v-if="item['doc'].length>0">📎</span>
+                                </a>
+                                <!-- <a target="_blank" :href="'/admin/work/progressqty/'+ item['pid'] +'/'">edit</a> -->
+                            </td>
+                            <td v-for="value in item['progress']" style="background-color:rgb(160, 211, 160);">{: value :}</td>
+                        </template>
+                    </tr>
+                    <tr>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>survey</td>
+                        <template v-if="'error' in item['survey']">
+                            <td :colspan="vfields.length" style="background-color: rgb(248, 163, 163);">{:item['survey']['error']:}
+                            </td>
+                        </template>
+                        <template v-else>
+                            <td v-for="value in item['survey']" style="background-color: rgb(169, 169, 224);">{: value :}</td>
+                        </template>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+    <div v-else>
+        upload progress
+    </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+    new Vue({
+        el: '#progress',
+        delimiters: ["{:", ":}"],
+        data: {
+            if_file: false,
+            updateid: "",
+            ifloading: false,
+            headerfields: null,
+            vfields: null,
+            items: null,
+            status: null,
+            status_text: null,
+            onlyIssue: false,
+            issues: [],
+            remarks: [],
+        },
+        mounted() {/*
+            this.headerfields = ['village', 'census', 'habitation'];
+            this.vfields = ['ht', 'remark'];
+            this.items = [{
+                'site': { 'village': 'village1', 'census': 'census1', 'habitation': 'habitation1' },
+                'update': { 'ht': 1.3, 'remark': "This is a test" },
+                'progress': { 'ht': 1.1 },
+                'survey': { 'ht': 1.2 },
+                'remark': 'remark'
+            }
+            ];*/
+        },
+        methods: {
+            validation: function (isTest) {
+                this.ifloading = true;
+                let file = this.$refs.file.files[0];
+                let formdata = new FormData();
+                formdata.append('file', file);
+                formdata.append('updateid', this.updateid);
+                let csrftoken = Cookies.get('csrftoken');
+                axios.post("{% url 'work:updateConfirmation' %}", formdata,
+                    {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                            'X-CSRFToken': csrftoken
+                        }
+                    }
+                ).then(response => {
+                    console.log(response.data);
+                    this.status = response.data['status'];
+                    this.status_text = response.data['text'];
+                    this.items = response.data['items'];
+                    this.headerfields = response.data['headerfields'];
+                    this.vfields = response.data['vfields'];
+                    this.ifloading = false;
+                }).catch(ex => {
+                    console.log(ex);
+                    this.ifloading = false;
+                });
+            },
+            handleFileUpload: function () {
+                if (this.$refs.file.files[0]) {
+                    this.updateid = this.$refs.file.files[0].name;
+                    this.if_file = true
+                }
+                else
+                    this.if_file = false
+            },
+            updateRecord: function (pid, dataIndex) {
+                this.ifloading = true;
+                let formdata = new FormData();
+                data = JSON.stringify(this.items[dataIndex]['update'])
+                formdata.append('progress', data);
+                formdata.append('pid', pid);
+                let csrftoken = Cookies.get('csrftoken');
+                axios.post("{% url 'work:updateHabProgress' %}", formdata,
+                    {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                            'X-CSRFToken': csrftoken
+                        }
+                    }
+                ).then(response => {
+                    this.ifloading = false;
+                    console.log(response.data);
+                    //this.items[dataIndex]['update'] = response.data['progress'];
+                    //this.items[dataIndex]['updated'] = true;
+                    if (response.data['status'] == 'error')
+                        Vue.set(this.items[dataIndex], 'updated', 'error:' + response.data['text']);
+                    else {
+                        Vue.set(this.items[dataIndex], 'updated', 'updated');
+                        Vue.set(this.items[dataIndex], 'progress', response.data['progress'])
+                    }
+                    ifloading = false;
+                }).catch(ex => {
+                    console.log(ex);
+                    ifloading = false;
+                });
+            }
+        }
+    });
+</script>
 {% endblock %}

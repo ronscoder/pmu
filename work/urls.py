@@ -18,9 +18,15 @@ urlpatterns = [
     path('loadDprQty/', views.loadDprQty, name='loadDprQty'),
     # path('loadDprHH/', views.loadDprHH, name='loadDprHH'),
     path('downloadFile/', views.downloadFile, name='downloadFile',),
+    path('survey/<int:site_id>', views.survey, name='survey',),
     path('progress/<int:site_id>', views.progress, name='progress',),
     path('shifted/<int:site_id>', views.shifted, name='shifted',),
     path('resolutionlinkedpage/<int:id>', views.resolutionlinkedpage, name='resolutionlinkedpage',),
+    path('updateProgress2/', views.updateProgress2, name='updateProgress2',),
+    path('updateConfirmation/', views.updateConfirmation, name='updateConfirmation',),
+    path('updateHabProgress/', views.updateHabProgress, name='updateHabProgress',),
+    path('projectwise/', views.projectwise, name='projectwise'),
+    path('divisionwise/', views.divisionwise, name='divisionwise'),
 
     # API's
     path('api_data/', views.api_data, name='api_data',),
@@ -32,7 +38,8 @@ urlpatterns = [
     path('api_mergeToSite', views.api_mergeToSite, name='api_mergeToSite',),
     path('api_load_review', views.api_load_review, name='api_load_review',),
     path('api_updateExecQty', views.api_updateExecQty, name='api_updateExecQty',),
-    path('api_create_resolution_link', views.api_create_resolution_link, name='api_create_resolution_link',)
+    path('api_create_resolution_link', views.api_create_resolution_link, name='api_create_resolution_link',),
+    path('api_switch_site', views.api_switch_site, name='api_switch_site',)
 ] 
 # + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

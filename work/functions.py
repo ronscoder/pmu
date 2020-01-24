@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+from work.models import Qfields
 
 # def getHabID(census, habitation):
 #     return re.sub('[\W]+', '', "{}{}".format(census, habitation)).upper()
@@ -11,4 +12,5 @@ def formatString(x):
         return x
     return " ".join(x.__str__().split()).upper()
 
-
+def infraQtyFields(obj):
+    return [getattr(obj, f, 0) for f in vars(obj) if f in vars(Qfields)]

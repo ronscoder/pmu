@@ -15,9 +15,12 @@ import pdb
 def getSite(census, habitation):
     site = None
     additional = False
-    habid = getHabID(census=census, habitation=habitation)
+    habid = getHabID(census=census, habitation=formatString(habitation))
     site = Site.objects.filter(hab_id=habid).first()
-    if(not site):
+    if(site):
+        if(site.origin):
+            site = site.origin
+    else:
         #: if None, look into additional
         site = SiteExtra.objects.filter(hab_id=habid).first()
         if(site):
@@ -29,23 +32,41 @@ def getSite(census, habitation):
 
 
 def getSiteData(census, habitation):
-    site = getSite(census, habitation)
-    survey = SurveyQty.objects.filter(site=site).first()
-    progress = ProgressQty.objects.filter(site=site).first()
+    site = None
+    survey = None
+    progress = None
+    site, isAdd = getSite(census, habitation)
+    if(not isAdd):
+        survey = SurveyQty.objects.filter(site=site).first()
+        progress = ProgressQty.objects.filter(site=site).first()
     return site, survey, progress
 
 
 def getSiteProgressdf():
-    num_fields = ['site__hab_id', 'site__village', 'site__census', 'site__habitation', 'site__district', 'status',
-                  'ht', 'pole_ht_8m', 'lt_3p', 'lt_1p', 'pole_lt_8m', 'dtr_100', 'dtr_63', 'dtr_25']
-    dfP = pd.DataFrame(ProgressQty.objects.all().values(*num_fields))
-    dfP.set_index('site__hab_id', inplace=True)
-    dfP['rem'] = 'site'
-    dfPX = pd.DataFrame(ProgressQtyExtra.objects.all().values(*num_fields))
-    dfPX.set_index('site__hab_id', inplace=True)
-    dfPX['rem'] = 'extra'
+    site_fields = ['hab_id', 'village', 'census', 'habitation', 'district', 'division', 'category', 'project__name']
+    qty_field = ['ht', 'pole_ht_8m', 'lt_3p', 'lt_1p', 'pole_lt_8m', 'dtr_100', 'dtr_63', 'dtr_25']
+    # dfP = pd.DataFrame(ProgressQty.objects.all().values(*num_fields))
+    # dfP.set_index('site__hab_id', inplace=True)
+    # dfP['rem'] = 'site'
+    # dfPX = pd.DataFrame(ProgressQtyExtra.objects.all().values(*num_fields))
+    # dfPX.set_index('site__hab_id', inplace=True)
+    # dfPX['rem'] = 'extra'
     #df = dfP.add(dfPX, fill_value=0, numeric_only=True)
-    df = pd.concat([dfP, dfPX])
+    # df = pd.concat([dfP, dfPX])
+    scope = Site.objects.exclude(Q(progressqty=None) & Q(surveyqty=None))
+    sfield = ['surveyqty__' + f for f in qty_field]
+    pfield = ['progressqty__'+f for f in qty_field]
+    data = scope.values(*site_fields, *sfield, 'surveyqty__status', *pfield, 'progressqty__status', 'dprqty__project')
+    df = pd.DataFrame(data)
+
+    # copy progress data if survey data is blank. 
+    _survey_infra = sum([df['surveyqty__' + f] for f in qty_field])
+    _progress_infra = sum([df['progressqty__' + f] for f in qty_field])
+    df['survey_infra'] = _survey_infra
+    df['progress_infra'] = _progress_infra
+    df = df[(_survey_infra > 0) | (_progress_infra > 0)]
+    # df[(_survey_infra > 0)].loc[:,sfield] = df[(_survey_infra > 0)].loc[:,pfield]
+    
     df.to_excel('outputs/progress_sites.xlsx')
     return df
 
@@ -73,12 +94,13 @@ def checkAgainstSurvey(site, progress):
     res = []
     hasError = False
     for f in PROGRESS_QFIELDS:
-        print('comparing {} against survey'.format(f))
+        # print('comparing {} against survey'.format(f))
         try:
+            diff = (getattr(progress, f, 0) or 0) - (getattr(survey, f, 0) or 0)  # if access 20%
             comp = (getattr(progress, f, 0) or 0) > 1.2 * (getattr(survey, f, 0) or 0)  # if access 20%
             if(comp):
                 res.append(
-                    {'class': 'warning', 'text': '{}: {} executed is more than 20% of {} survey'.format(site, f, f)})
+                    {'class': 'warning', 'text': 'excess {} {}:\t\t{} \tby {}'.format(site.census, site.habitation, f, round(diff,1))})
         except Exception as ex:
             res.append(
                     {'class': 'error', 'text': '{}: {}'.format(progress.site, ex.__str__())})
@@ -148,13 +170,6 @@ def updateProgressSingle(progressdata, updateid, isTest):
         pqty = ProgressQty.objects.filter(site=site).first()
         if(not pqty):
             pqty = ProgressQty(site=site)
-        _assignQty(pqty, sqty, progressdata)
-
-        hasError, warnings = checkAgainstSurvey(site, pqty)
-        status.extend(warnings)
-
-        pqty.changeid = updateid
-        sqty.changeid = updateid
         status.append(
             {'class': 'success', 'text': 'Updating: {village} {census} {habitation}'.format(**progressdata)})
     elif(site and additional):
@@ -164,9 +179,9 @@ def updateProgressSingle(progressdata, updateid, isTest):
         pqty = ProgressQtyExtra.objects.filter(site=site).first()
         if(not pqty):
             pqty = ProgressQtyExtra(site=site)
-        _assignQty(pqty, sqty, progressdata)
-        pqty.changeid = updateid
-        sqty.changeid = updateid
+        # _assignQty(pqty, sqty, progressdata)
+        # pqty.changeid = updateid
+        # sqty.changeid = updateid
         status.append(
             {'class': 'success', 'text': 'Updating (additional): {village} {census} {habitation}'.format(**progressdata)})
     else:
@@ -175,13 +190,21 @@ def updateProgressSingle(progressdata, updateid, isTest):
             {'class': 'error', 'text': "Unknown site: {village} {census} {habitation}".format(**progressdata)})
         hasError = True
     if(pqty):
-        if((not pqty.review == 'not reviewed' ) or (pqty.status == 'completed') or (pqty.cert == True)):
+        # skip update if...
+        # if((not pqty.review == 'not reviewed' ) or (pqty.status == 'completed') or (pqty.cert == True)):
+        if((not pqty.review == 'not reviewed' ) or (pqty.cert == True)):
             status.append(
             {'class': 'info', 'text': "skipped: {village} {census} {habitation} completed, under review".format(**progressdata)})            
             return False, status, False
+
+        _assignQty(pqty, sqty, progressdata)
+        hasError, warnings = checkAgainstSurvey(site, pqty)
+        status.extend(warnings)
+
+        pqty.changeid = updateid
+        sqty.changeid = updateid        
         hasError, errors = checkInfraNil(pqty, sqty)
         status.extend(errors)
-    print(isTest, hasError)
     # input('check')
     if(not isTest and not hasError):
         pqty.save()
@@ -230,23 +253,30 @@ def getDistrictProgressSummary():
                 'status', filter=Q(status='completed')),
         cert=Count(
                 'cert', filter=Q(cert=True))))
-    df_extra.set_index('district', inplace=True)
+    if(not df_extra.empty):                
+        df_extra.set_index('district', inplace=True)
 
     if(not df_extra.empty):
         df_district = df_district.add(df_extra, fill_value=0)
     dfProgress = df_district.copy()
-    # Add surveyed hab count from SurveyQty
-    sqty = SurveyQty.objects.filter(approval_status='approved')
+    # Add approved hab count from SurveyQty
+    sqty = SurveyQty.objects.filter(status='approved')
     dfSuveyed = pd.DataFrame(sqty.values(
-        district=F('site__district')).annotate(surveyed=Count('site')))
+        district=F('site__district')).annotate(approved=Count('site')))
     dfSuveyed.set_index('district', inplace=True)
-    df_district['surveyed'] = dfSuveyed
+    df_district['approved'] = dfSuveyed
 
     dpr = DprQty.objects.filter(has_infra=True)
     dfDPR = pd.DataFrame(dpr.values(
-        district=F('site__district')).annotate(surveyed=Count('site')))
+        district=F('site__district')).annotate(approved=Count('site')))
     dfDPR.set_index('district', inplace=True)
     df_district['DPRHabs'] = dfDPR
+
+    #Scope
+    scope = Site.objects.exclude(Q(surveyqty=None) & Q(progressqty=None)).exclude(surveyqty__status='canceled')
+    dfScope = pd.DataFrame(scope.values('district').annotate(scope=Count('id')))
+    dfScope.set_index('district', inplace=True)
+    df_district['scope'] = dfScope
 
     dfDprqty = pd.DataFrame(dpr.values(district=F('site__district')).annotate(
         *[Sum(f) for f in [*DPR_INFRA_FIELDS, 'ht_conductor']]))
@@ -255,7 +285,7 @@ def getDistrictProgressSummary():
     dfDprqty['section'] = '1. DPR'
     # dfDprqty['pole_ht_8m'] = pd.np.ceil(dfDprqty['ht'] * 15).astype(int)
     # dfDprqty['pole_lt_8m'] = pd.np.ceil(dfDprqty['lt_3p'] * 25 + dfDprqty['lt_1p'] * 22).astype(int)
-    dfDprqty['pole_ht_8m'] = dfDprqty['ht'] * 15
+    dfDprqty['pole_ht_8m'] = dfDprqty['ht'] * 14
     dfDprqty['pole_lt_8m'] = dfDprqty['lt_3p'] * 25 + dfDprqty['lt_1p'] * 22
     dfDprqty['pole_9m'] = (dfDprqty['dtr_100'] +
                            dfDprqty['dtr_63'] + dfDprqty['dtr_25'])*2
@@ -271,28 +301,55 @@ def getDistrictProgressSummary():
     dfPQty = df_district.copy()
 
     dfPQty.columns = [f.replace('__sum', '') for f in dfPQty.columns]
-    dfPQty['section'] = '4. Executed'
+    dfPQty['section'] = '6. Executed'
     dfPQty['pole_9m'] = (dfPQty['dtr_100'] +
                          dfPQty['dtr_63'] + dfPQty['dtr_25'])*2
     dfPQty['pole_8m'] = dfPQty['pole_ht_8m'] + dfPQty['pole_lt_8m']
 
+    sscope = SurveyQty.objects.exclude(status='canceled')
+    dfScopeSurvQty = pd.DataFrame(sscope.values(district=F('site__district')).annotate(*[Sum(f) for f in SURVEY_QFIELDS]))
+    dfScopeSurvQty.columns = [f.replace('__sum', '') for f in dfScopeSurvQty.columns]
+    dfScopeSurvQty['section'] = '3. Scope'
+    dfScopeSurvQty.set_index('district', inplace=True)
+    dfScopeSurvQty['pole_8m'] = dfScopeSurvQty['pole_ht_8m'] + dfScopeSurvQty['pole_lt_8m']
+
     dfSurvQty = pd.DataFrame(sqty.values(district=F('site__district')).annotate(
         *[Sum(f) for f in SURVEY_QFIELDS]))
     dfSurvQty.columns = [f.replace('__sum', '') for f in dfSurvQty.columns]
-    dfSurvQty['section'] = '3. Approved'
+    dfSurvQty['section'] = '4. Approved'
     dfSurvQty.set_index('district', inplace=True)
     dfSurvQty['pole_8m'] = dfSurvQty['pole_ht_8m'] + dfSurvQty['pole_lt_8m']
 
     sfield = [*SURVEY_QFIELDS, 'pole_8m']
     dfQtyBal = dfLoa[sfield].subtract(dfSurvQty[sfield])
-    dfQtyBal['section'] = '5. Balance (LOA)'
+    dfQtyBal['section'] = '5. Approval Balance'
 
     dfExePc = (dfPQty[sfield]/dfLoa[sfield] * 100).fillna(0).astype(int)
-    # dfExePc = dfExePc.apply(lambda x : str(x))
-    dfExePc['section'] = '6. Completed %'
+    dfExePc['section'] = '7. Completed %'
 
-    dfQty = pd.concat([dfDprqty, dfLoa, dfSurvQty, dfPQty,
-                       dfQtyBal, dfExePc], sort=False)
+    completed = ProgressQty.objects.filter(status='completed')
+    dfCompleted = pd.DataFrame(completed.values(district=F('site__district')).annotate(*[Sum(f) for f in SURVEY_QFIELDS]))
+    dfCompleted.columns = [f.replace('__sum', '') for f in dfCompleted.columns]
+    dfCompleted['pole_8m'] = dfCompleted['pole_ht_8m'] + dfCompleted['pole_lt_8m']
+    dfCompleted['pole_9m'] = (dfCompleted['dtr_100'] +
+                         dfCompleted['dtr_63'] + dfCompleted['dtr_25'])*2    
+    # dfCompleted['section'] = '7. completed'
+    dfCompleted.set_index('district', inplace=True)   
+    
+    dfQtyComBal = dfLoa[sfield].subtract(dfPQty[sfield])
+    dfQtyComBal['section'] = '8. LOA - Executed'
+
+    dfOngoing = dfPQty[sfield].subtract(dfCompleted[sfield])
+    notCompleted = SurveyQty.objects.exclude(site__progressqty__status='completed')
+    dfNotCompleted = pd.DataFrame(notCompleted.values(district=F('site__district')).annotate(*[Sum(f) for f in SURVEY_QFIELDS]))
+    dfNotCompleted.columns = [f.replace('__sum', '') for f in dfNotCompleted.columns]
+    dfNotCompleted['pole_8m'] = dfNotCompleted['pole_ht_8m'] + dfNotCompleted['pole_lt_8m']
+    dfNotCompleted.set_index('district', inplace=True) 
+    dfNotCompleted = dfNotCompleted[sfield].subtract(dfOngoing[sfield]) 
+    dfNotCompleted['section'] = '9. To Execute'
+
+    dfQty = pd.concat([dfDprqty, dfLoa, dfSurvQty, dfScopeSurvQty, dfPQty,
+                       dfQtyBal, dfExePc, dfNotCompleted, dfQtyComBal], sort=False)
     dfQty.sort_values(by=['district', 'section'], inplace=True)
     dfQty.set_index([dfQty.index, dfQty['section']], inplace=True)
     del dfQty['section']
@@ -302,14 +359,20 @@ def getDistrictProgressSummary():
               display_fields] = dfDprqty[display_fields].sum()
     dfQty.loc[('TOTAL', '2. LOA'),
               display_fields] = dfLoa[display_fields].sum()
-    dfQty.loc[('TOTAL', '3. Approved'),
+    dfQty.loc[('TOTAL', '3. Scope'),
+              display_fields] = dfScopeSurvQty[display_fields].sum()
+    dfQty.loc[('TOTAL', '4. Approved'),
               display_fields] = dfSurvQty[display_fields].sum()
-    dfQty.loc[('TOTAL', '4. Executed'),
-              display_fields] = dfPQty[display_fields].sum()
-    dfQty.loc[('TOTAL', '5. Balance'),
+    dfQty.loc[('TOTAL', '5. Approval Balance'),
               display_fields] = dfQtyBal[display_fields].sum()
-    dfQty.loc[('TOTAL', '6. Completed %'), display_fields] = dfQty.loc[(
-        'TOTAL', '4. Executed'), display_fields]/dfQty.loc[('TOTAL', '2. LOA'), display_fields]*100
+    dfQty.loc[('TOTAL', '6. Executed'),
+              display_fields] = dfPQty[display_fields].sum()
+    dfQty.loc[('TOTAL', '7. Completed %'), display_fields] = dfQty.loc[(
+        'TOTAL', '6. Executed'), display_fields]/dfQty.loc[('TOTAL', '2. LOA'), display_fields]*100
+    dfQty.loc[('TOTAL', '8. LOA - Executed'),
+              display_fields] = dfQtyComBal[display_fields].sum()
+    dfQty.loc[('TOTAL', '9. To Execute'),
+              display_fields] = dfNotCompleted[display_fields].sum()
     dfQty = pd.np.around(dfQty, 1)
     intFields = [f for f in display_fields if ('pole' in f or 'dtr' in f)]
     dfQty.fillna(0, inplace=True)
@@ -324,25 +387,26 @@ def getDistrictProgressSummary():
     # if(not dfNotDPR.empty):
     #     df_district = df_district.add(dfNotDPR, fill_value=0)
 
-    #: non surveyed
-    nonsurveyed = ProgressQty.objects.exclude(site__in=sqty.values('site')).values(
-        district=F('site__district')).annotate(non_surveyed=Count('site'))
-    dfNonSurveyed = pd.DataFrame(nonsurveyed)
-    dfNonSurveyed.set_index('district', inplace=True)
+    #: non approved
+    # nonapproved = ProgressQty.objects.exclude(site__in=sqty.values('site')).values(
+    #     district=F('site__district')).annotate(non_approved=Count('site'))
+    # dfNonapproved = pd.DataFrame(nonapproved)
+    # dfNonapproved.set_index('district', inplace=True)
 
-    nonsurveyednosite = ProgressQtyExtra.objects.exclude(site__site__in=SurveyQty.objects.all(
-    ).values('site')).values(district=F('site__district')).annotate(non_surveyed=Count('site'))
-    dfNonSurveyedNonSite = pd.DataFrame(nonsurveyednosite)
-    dfNonSurveyedNonSite.set_index('district', inplace=True)
+    # nonapprovednosite = ProgressQtyExtra.objects.exclude(site__site__in=SurveyQty.objects.all(
+    # ).values('site')).values(district=F('site__district')).annotate(non_approved=Count('site'))
+    # dfNonapprovedNonSite = pd.DataFrame(nonapprovednosite)
+    # if(not dfNonapprovedNonSite.empty):
+    #     dfNonapprovedNonSite.set_index('district', inplace=True)
 
-    if(not dfNonSurveyedNonSite.empty):
-        dfNonSurveyed.add(dfNonSurveyedNonSite, fill_value=0)
+    # if(not dfNonapprovedNonSite.empty):
+    #     dfNonapproved.add(dfNonapprovedNonSite, fill_value=0)
 
-    df_district['Non Surveyed'] = dfNonSurveyed
+    df_district['Non approved'] = df_district['scope'] - df_district['approved']
 
     df_district.fillna(0, inplace=True)
     df_district.loc['∑'] = df_district.sum(numeric_only=True)
-    int_fields = ['completed', 'cert', 'surveyed', 'DPRHabs', 'Non DPR', 'Non Surveyed', *[f+'__sum' for f in ['pole_ht_8m',
+    int_fields = ['completed', 'cert', 'approved','scope', 'DPRHabs', 'Non DPR', 'Non approved', *[f+'__sum' for f in ['pole_ht_8m',
                                                                                                                'pole_lt_8m', 'dtr_100', 'dtr_63', 'dtr_25']]]
     df_district[int_fields] = df_district[int_fields].astype(int)
     df_district.columns = [c.replace('__sum', '') for c in df_district.columns]
@@ -358,9 +422,8 @@ def getDistrictProgressSummary():
     df_shiftedExtra = pd.DataFrame(ShiftedQtyExtra.objects.values(district=F('site__district')).annotate(*[Sum(f) for f in
                                                                                                            num_fields
                                                                                                            ]))
-    df_shiftedExtra.set_index('district', inplace=True)
-
     if(not df_shiftedExtra.empty):
+        df_shiftedExtra.set_index('district', inplace=True)
         df_shifted = df_shifted.add(df_shiftedExtra, fill_value=0)
 
     df_shifted.loc['∑'] = df_shifted.sum()
@@ -388,18 +451,18 @@ def getDistrictProgressSummary():
                                       dfCats['completed_III']).fillna(0).astype(int)
     dfCats['completed_total'] = df_district['completed']
 
-    surveyedSites = SurveyQty.objects.all().values('site')
+    approvedSites = SurveyQty.objects.all().values('site')
     dfCatsSurv = pd.DataFrame(DprQty.objects.filter(site__in=completedSites).values(district=F('site__district')).annotate(
-        surveyed_II=Count('category', filter=Q(category="II")), surveyed_III=Count('category', filter=Q(category="III"))))
+        approved_II=Count('category', filter=Q(category="II")), approved_III=Count('category', filter=Q(category="III"))))
     dfCatsSurv.set_index('district', inplace=True)
-    dfCatsSurv['surveyed_unassigned'] = (df_district['surveyed'] - dfCatsSurv['surveyed_II'] -
-                                         dfCatsSurv['surveyed_III']).fillna(0).astype(int)
-    dfCatsSurv['surveyed_total'] = df_district['surveyed']
+    dfCatsSurv['approved_unassigned'] = (df_district['approved'] - dfCatsSurv['approved_II'] -
+                                         dfCatsSurv['approved_III']).fillna(0).astype(int)
+    dfCatsSurv['approved_total'] = df_district['approved']
 
     dfCats = pd.concat([dfCatsSurv, dfCatsAll, dfCats], axis=1, sort=True)
 
     dfCats.loc['∑'] = dfCats.sum()
-    fs = ['surveyed_II', 'surveyed_III', 'surveyed_unassigned', 'surveyed_total', 'dprhab_II',
+    fs = ['approved_II', 'approved_III', 'approved_unassigned', 'approved_total', 'dprhab_II',
           'dprhab_III', 'DPR total', 'completed_II',	'completed_III', 'completed_unassigned', 'completed_total']
     dfCats[fs] = dfCats[fs].fillna(0).astype(int)
 
@@ -422,3 +485,32 @@ def getDistrictProgressSummary():
 
 def getLog():
     return Log.objects.values()[::-1][:20]
+
+
+def createVariation(site, **kwargs):
+    xsite = SiteExtra()
+    xsite.village = kwargs['village']
+    xsite.census = kwargs['census']
+    xsite.habitation =  kwargs['habitation']
+    xsite.district = kwargs['district']
+    xsite.division = kwargs['division']
+    xsite.category = kwargs['category']
+    xsite.block = kwargs['block']
+    xsite.site = site
+    xsite.save()    
+
+def switchSite(from_site_id, to_site_id):
+    try:
+        fromSite = Site.objects.get(id=from_site_id)
+        toSite = Site.objects.get(id=to_site_id)
+        for model in ['surveyqty', 'progressqty', 'shiftedqty', 'dprqty']:
+            obj = getattr(fromSite, model, None)
+            if(obj):
+                if(not getattr(toSite,model,None)):
+                    obj.site = toSite
+                    obj.save()
+        createVariation(toSite, **vars(fromSite))
+        fromSite.delete()
+        return [{'class':'success', 'text':'site switched successfully'}]
+    except Exception as ex:
+        return [{'class':'bad', 'text':ex.__str__()}]

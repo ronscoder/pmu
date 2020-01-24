@@ -17,17 +17,24 @@
         <div :class="[m['type'], 'message']" v-for="m in msg">
             {: m['text'] :}
         </div>
-        <div v-if="hasData" class="reviewData">
+        <div class="reviewData">
+            <!-- <div v-if="!hasData" class="warning">Data not complete!</div> -->
             <div style="display:flex; justify-content:space-between; background-color:rgb(128, 128, 202); padding: 8; ">
                 <strong>Review</strong>
                 <div>
-                    <input type="checkbox" id="ok" v-model="ok" disabled><button :disabled="ok || noEdit"
+                    <select v-model="review" @change="updateField('review', review)">
+                        <option>ok</option>
+                        <option>issue</option>
+                        <option>freeze</option>
+                        <option>not reviewed</option>
+                    </select>
+                    <!-- <input type="checkbox" id="ok" v-model="ok" disabled><button :disabled="ok || noEdit"
                         @click="updateReviewField('ok')">Ok</button>
                     <input type="checkbox" id="issue" v-model="issue" disabled><button :disabled="issue || noEdit"
                         @click="updateReviewField( 'issue')">Issue</button>
                     <input type="checkbox" id="not reviewed" :checked="!(ok || issue)" disabled><button
                         :disabled="(ok && issue)  || noEdit" @click="updateReviewField('not_reviewed')">not
-                        reviewed</button>
+                        reviewed</button> -->
                 </div>
             </div>
             <div>
@@ -45,7 +52,7 @@
             </div>
             <hr>
             <table style="width:98%; margin:auto">
-                <tr>
+                <tr v-if="site">
                     <th>District</th>
                     <td>{: site['district'] :}</td>
                     <th>Division</th>
@@ -53,7 +60,7 @@
                     <!-- <th>Division</th>
                     <td>{: division :}</td> -->
                 </tr>
-                <tr>
+                <tr v-if="site">
                     <th>Village</th>
                     <td>{: site['village'] :}</td>
                     <th>Census</th>
@@ -61,7 +68,7 @@
                 </tr>
                 <tr>
                     <th>Habitation</th>
-                    <td><a :href="p_url" target="_blank">{: site['habitation'] :}</a></td>
+                    <td v-if="site"><a :href="p_url" target="_blank">{: site['habitation'] :}</a></td>
                     <th>Status</th>
                     <!-- <td>{: status :}</td> -->
                     <td>
@@ -73,7 +80,7 @@
                         </select>
                     </td>
                 </tr>
-                <tr>
+                <tr v-if="site">
                     <th>Category</th>
                     <td>
                         <select v-model="site['category']" @change="updateField('site.category',site['category'])">
@@ -86,14 +93,15 @@
                     <th>Block</th>
                     <td>{: site['block'] :}</td>
                 </tr>
-                <tr>
+                <tr v-if="site">
                     <td colspan="2">{: isAdditional>0?"additional":"surveyed" :} | {: approval :}
                     </td>
                     <td><a :href="'/admin/work/site/' + site['id']" target="_blank">Site header</a></td>
+                    <td>{: remark :}</td>
                 </tr>
             </table>
             <hr>
-            <table class="comparetab">
+            <table class="comparetab" v-if="site">
                 <thead>
                     <th>Particular</th>
                     <th><a :href="'/admin/work/surveyqty/' + site['survey_id']" target="_blank">
@@ -110,6 +118,7 @@
                     </th> -->
                     <!-- <th></th>
                     <th></th> -->
+                    <th><button @click="revertProgress">Revert to last</button></th>
                 </thead>
                 <tbody>
                     <template>
@@ -120,9 +129,9 @@
                 </tbody>
             </table>
         </div>
-        <div v-else>
+        <!-- <div v-else>
             No proper data
-        </div>
+        </div> -->
     </div>
 
     <div class="reviewdoc">
@@ -155,7 +164,7 @@
             template: `<tr>
                     <th>{: qty['field'] :}</th>
                     <td>{: qty['surveyed'] :}</td>
-                    <td><input v-model="executed" type="number" :disabled="disabled || !qty['meta']['dbfield']['executed']"></td>
+                    <td><input ref="input" v-model="executed" type="number" :disabled="disabled || !qty['meta']['dbfield']['executed']" @click="select"></td>
                     <td>{: (qty['surveyed'] - executed).toFixed(3) :}</td>
                     <td><button  @click="undo"  :disabled="!valueChanged">undo</button></td>
                     <td><button  @click="update"  :disabled="!valueChanged">update</button></td>
@@ -169,11 +178,16 @@
                 update: function () {
                     this.$emit('update', this.field, this.executed);
                     this.valueChanged = false;
-                }
+                },
+                select: function (event) {
+                    event.target.select();
+                    console.log(this.$refs.input);
+                },
             },
             watch: {
                 executed: function (newValue, oldValue) {
-                    this.valueChanged = this.qty['executed'] != this.executed;
+                    //this.valueChanged = this.qty['executed'] != this.executed;
+                    this.valueChanged = true;
                     //if (this.valueChanged)
                     //    this.$emit('update', this.field, newValue);
                 }
@@ -190,8 +204,8 @@
                 habid: null,
                 pid: null,
                 quants: null,
-                ok: null,
-                issue: null,
+                //ok: null,
+                //issue: null,
                 review_text: "",
                 site: null,
                 msg: [],
@@ -264,8 +278,8 @@
                         this.approval = response.data['approval'];
                         //this.resolution_id = response.data['resolution'];
                         this.model = response.data['model'];
-                        if (this.review == 'ok') this.ok = true;
-                        if (this.review == 'issue') this.issue = true;
+                        //if (this.review == 'ok') this.ok = true;
+                        //if (this.review == 'issue') this.issue = true;
                         this.reviewTxtChanged = false;
                     });
                 },
@@ -333,15 +347,27 @@
                     }
                     this.fieldsToUpdate = {};
                 },
-                updateReviewField: function (value) {
+                /*updateReviewField: function (value) {
                     this.updateField('review', value);
                     this.ok = value == 'ok';
                     this.issue = value == 'issue';
-                },
+                },*/
                 nextReview: function () {
                     this.next = true;
                     this.load(true);
                     this.next = false;
+                },
+                revertProgress: function () {
+                    res = confirm("Revert to previous progress?");
+                    //console.log(res);
+                    if (res) {
+                        this.load();
+                        /*let url = "/work/api_deleteDoc/" + to + "/" + id;
+                        axios.get(url).then(response => {
+                            console.log(response.data);
+                            this.load(1);
+                        });*/
+                    }
                 }
             }, //methods
             watch: {

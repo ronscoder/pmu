@@ -17,18 +17,22 @@
                 <th>village</th>
                 <th>census</th>
                 <th>habitation</th>
+                <th>edit</th>
             </thead>
             <tbody>
                 <tr v-for="site in variants">
                     <td>{: site['village']:}</td>
                     <td>{: site['census']:}</td>
                     <td>{: site['habitation']:}</td>
+                    <td><a :href="'/admin/work/siteextra/' + site['id']" target="_blank">edit</a></td>
                 </tr>
             </tbody>
         </table>
     </div>
     <hr>
     <div>
+        <input v-model="village" placeholder="village">
+        <input v-model="census" placeholder="census">
         <input v-model="habv1" placeholder="habitation variant">
         <button @click="addVariation">add</button>
     </div>
@@ -50,6 +54,8 @@
                 variants: [],
                 habv1: null,
                 site: null,
+                census: null,
+                village: null,
             },
             methods: {
                 fetchSite: function () {
@@ -62,11 +68,16 @@
                         console.log(response.data);
                         this.variants = response.data['variants']
                         this.site = response.data['site']
+                        this.habv1 = this.site['habitation']
+                        this.census = this.site['census']
+                        this.village = this.site['village']
                     });
                 },
                 addVariation: function () {
                     let formdata = new FormData();
-                    formdata.append('variant', this.habv1);
+                    formdata.append('habitation', this.habv1);
+                    formdata.append('census', this.census);
+                    formdata.append('village', this.village);
                     formdata.append('site_id', this.site_id);
                     axios.post("{% url 'work:addVariation' %}", formdata, {
                         headers: {

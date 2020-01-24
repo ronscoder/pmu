@@ -96,7 +96,7 @@
             <input hidden name='path' value="outputs/progress_sites.xlsx">
             <input hidden name='filename' value="progress_sites.xlsx">
             <input hidden name='tabtype' value="sites">
-            <input type="submit" value="Download Site Progress">
+            <input type="submit" value="Download Site Scope & Progress">
         </form>
         <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
             {% csrf_token %}
@@ -182,6 +182,7 @@
                     console.log(response.data);
                     this.errors_only = false;
                     ifloading = false;
+                    this.getData();
                 }).catch(ex => {
                     console.log(ex);
                     ifloading = false;

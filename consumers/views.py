@@ -58,6 +58,7 @@ def upload(request):
             ncreated += 1
         else:
             nupdated += 1
+        # consumer.village = row[cols[]]
         consumer.edate = row[cols[2]]
         consumer.status = row[cols[11]]
         consumer.aadhar = row[cols[5]]
@@ -69,6 +70,12 @@ def upload(request):
         consumer.pdc_date = row[cols[12]]
         consumer.address1 = row[cols[13]]
         consumer.address2 = row[cols[14]]
+        consumer.remark = row[cols[15]]
+        censusSite = Site.objects.filter(census = row[cols[0]]).first()
+        if(censusSite):
+            consumer.district = censusSite.district
+            consumer.village = censusSite.village
+
         consumer.changeid = upid
         hab_id = getHabID(census=row[cols[0]], habitation=row[cols[1]])
         if(Site.objects.filter(hab_id=hab_id).exists()):
@@ -98,14 +105,18 @@ def api_getConsumers(request):
     habid_exact = request.POST.get('habid_exact',None)
     if(habid_exact):
         filterString['hab_id__exact'] = habid_exact
+    inPortal = request.POST.get('inPortal',None)
+    if(inPortal):
+        filterString['isInPortal'] = True
     village = request.POST.get('village', None)
     village = formatString(village)
     if(village):
         filterString['village__icontains'] = village
 
     consumers = Consumer.objects.filter(**filterString)
-
+    df = pd.DataFrame(consumers.values()).iloc[:, 4:]
+    df.to_excel('outputs/filtered_consumers.xlsx')
     return JsonResponse(
         {
-            'consumers': pd.DataFrame(consumers.values()).iloc[:, 4:].to_html()
+            'consumers': df.to_html()
         })

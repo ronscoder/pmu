@@ -30,10 +30,18 @@
             <input type="text" name="habid" id="habid" v-model="habid" autofocus>
             <label>Hab id</label>
             <input type="text" name="habid_exact" id="habid_exact" v-model="habid_exact" autofocus>
+            <label><input type="checkbox" name="portalonly" id="portal" v-model="inPortal">Only Portal</label>
             <input type="submit" :disabled="!habid && !habid_exact && !village" value="Load">
         </form>
         <hr>
     </div>
+    <form class="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+        {% csrf_token %}
+        <input hidden name='path' value="outputs/filtered_consumers.xlsx">
+        <input hidden name='filename' value="filtered_consumers.xlsx">
+        <input hidden name='tabtype' value="filtered_consumers">
+        <input type="submit" value="Download">
+    </form>
     <div v-if="consumers" class="section">
         <span v-html="consumers"></span>
     </div>
@@ -53,7 +61,8 @@
             habid: null,
             habid_exact: null,
             village: null,
-            consumers: null
+            consumers: null,
+            inPortal: false
         },
         methods: {
             changed: function () {
@@ -70,6 +79,8 @@
                     formdata.append('habid_exact', this.habid_exact.replace(" ", ""));
                 if (this.village)
                     formdata.append('village', this.village.replace(" ", ""));
+                if (this.inPortal)
+                    formdata.append('inPortal', 'True');
                 axios.post("{% url 'consumers:api_getConsumers' %}", formdata, {
                     headers: {
                         'X-CSRFToken': Cookies.get('csrftoken')

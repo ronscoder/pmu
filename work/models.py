@@ -9,10 +9,10 @@ def getHabID(**kwargs):
     return re.sub('[\W]+', '', "{}{}".format(kwargs['census'], kwargs['habitation'])).upper()
 
 
-class Test(models.Model):
-    def __str__(self):
-        return self.hab_id
-    ref_id = models.CharField(max_length=200)
+# class Test(models.Model):
+#     def __str__(self):
+#         return self.hab_id
+#     ref_id = models.CharField(max_length=200)
 
 # Create your models here.
 # DPR sites plus surveyed
@@ -49,10 +49,17 @@ class Log(Common):
     model = models.CharField(max_length=50, blank=True, null=True)
 
 
+class Project(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    desc = models.TextField(default="", blank=True)
+    def __str__(self):
+        return self.name
+
 class SiteMeta(models.Model):
     class Meta:
         abstract = True
-    hab_id = models.CharField(max_length=50, unique=True)
+    hab_id = models.CharField(max_length=50, unique=True, null=True, blank=True)
     approve_id = models.CharField(max_length=50, blank=True, null=True)
     village = models.CharField(max_length=50)
     census = models.CharField(max_length=6, blank=True)
@@ -61,7 +68,8 @@ class SiteMeta(models.Model):
     division = models.CharField(max_length=50)
     category = models.CharField(max_length=50, null=True, blank=True)
     block = models.CharField(max_length=50, blank=True, null=True)
-
+    remark = models.TextField(default="", blank=True)
+    project = models.ForeignKey(Project,on_delete=models.SET_NULL, null=True, blank=True)
     def save(self, *args, **kwargs):
         self.hab_id = getHabID(census=self.census, habitation=self.habitation)
         self.habitation = str(self.habitation).upper()
@@ -71,18 +79,17 @@ class SiteMeta(models.Model):
         super().save(*args, **kwargs)
 
 class Qfields(models.Model):
-    ht = models.FloatField(blank=True, null=True)
-    ht_conductor = models.FloatField(blank=True, null=True)
-    lt_1p = models.FloatField(blank=True, null=True)
-    lt_3p = models.FloatField(blank=True, null=True)
-    dtr_25 = models.IntegerField(blank=True, null=True)
-    dtr_63 = models.IntegerField(blank=True, null=True)
-    dtr_100 = models.IntegerField(blank=True, null=True)
-    pole_lt_8m = models.IntegerField(blank=True, null=True)
-    pole_ht_8m = models.IntegerField(blank=True, null=True)
-    pole_8m = property(lambda self: sum(
-        [qty for qty in [self.pole_lt_8m, self.pole_ht_8m] if qty != None]))
-    pole_9m = models.IntegerField(blank=True, null=True)
+    ht = models.FloatField(default=0)
+    ht_conductor = models.FloatField(default=0)
+    lt_1p = models.FloatField(default=0)
+    lt_3p = models.FloatField(default=0)
+    dtr_25 = models.IntegerField(default=0)
+    dtr_63 = models.IntegerField(default=0)
+    dtr_100 = models.IntegerField(default=0)
+    pole_lt_8m = models.IntegerField(default=0)
+    pole_ht_8m = models.IntegerField(default=0)
+    pole_9m = models.IntegerField(default=0)
+    pole_8m = property(lambda self: sum([qty for qty in [self.pole_lt_8m, self.pole_ht_8m] if qty != None]))
     class Meta:
         abstract = True
 
@@ -100,16 +107,16 @@ class DprQty(Common, Qfields):
     def __str__(self):
         return "{}".format(self.site)
     site = models.OneToOneField(Site, on_delete=models.CASCADE)
-    category = models.CharField(max_length=50)
-    mode = models.CharField(max_length=50)
-    status = models.CharField(max_length=50)
-    type = models.CharField(max_length=50)
-    hh_bpl = models.IntegerField(blank=True, null=True)
-    hh_bpl_metered = models.IntegerField(blank=True, null=True)
-    hh_metered = models.IntegerField(blank=True, null=True)
-    hh_unmetered = models.IntegerField(blank=True, null=True)
-    hh_apl_free = models.IntegerField(blank=True, null=True)
-    hh_apl_not_free = models.IntegerField(blank=True, null=True)
+    category = models.CharField(max_length=50, blank=True, null=True)
+    mode = models.CharField(max_length=50, blank=True, null=True)
+    status = models.CharField(max_length=50, blank=True, null=True)
+    type = models.CharField(max_length=50, blank=True, null=True)
+    hh_bpl = models.IntegerField(default=0)
+    hh_bpl_metered = models.IntegerField(default=0)
+    hh_metered = models.IntegerField(default=0)
+    hh_unmetered = models.IntegerField(default=0)
+    hh_apl_free = models.IntegerField(default=0)
+    hh_apl_not_free = models.IntegerField(default=0)
     # ht = models.FloatField(blank=True, null=True)
     # lt_3p = models.FloatField(blank=True, null=True)
     # lt_1p = models.FloatField(blank=True, null=True)
@@ -118,19 +125,21 @@ class DprQty(Common, Qfields):
     # dtr_25 = models.IntegerField(blank=True, null=True)
     remark = models.CharField(max_length=100, blank=True, null=True)
     has_infra = models.BooleanField(null=True, blank=True)
+    is_dpr_scope = models.BooleanField(default=False)
+    project = models.CharField(max_length=10, default='main')
 
     def save(self, *args, **kwargs):
         if(sum([self.ht, self.lt_3p, self.lt_1p, self.dtr_100, self.dtr_63, self.dtr_25]) > 0):
             self.has_infra = True
         else:
             self.has_infra = False
-        super(DprQty, self).save(*args, **kwargs)
+        super().save(*args, **kwargs)
 
 class SurveyQty(Common, Qfields):
     def __str__(self):
-        return "{} - {}".format(self.site, self.approval_status)
+        return "{} - {}".format(self.site, self.status)
     site = models.OneToOneField(Site, on_delete=models.CASCADE)
-    approval_status = models.CharField(max_length=200, blank=True, null=True)
+    status = models.CharField(default="pending", max_length=200)
     remark = models.CharField(max_length=200, blank=True, null=True)
 
 
@@ -162,7 +171,7 @@ class ProgressMeta(Common, Qfields):
     class Meta:
         abstract = True
     remark = models.CharField(max_length=200, blank=True, null=True)
-    status = models.CharField(max_length=200, blank=True, null=True,
+    status = models.CharField(default = 'not started', max_length=200,
                               choices=(
                                   ('completed', 'completed'),
                                   ('ongoing', 'ongoing'),
@@ -178,9 +187,17 @@ class ProgressMeta(Common, Qfields):
                               choices=(
                                   ('ok', 'ok'),
                                   ('issue', 'issue'),
+                                  ('freeze', 'freeze'),
                                   ('not reviewed', 'not reviewed'),
                               ))
     review_text = models.TextField(null=True, blank=True)
+    has_infra = models.BooleanField(default=False)
+    def save(self, *args, **kwargs):
+        if(sum([self.ht, self.lt_3p, self.lt_1p, self.dtr_100, self.dtr_63, self.dtr_25]) > 0):
+            self.has_infra = True
+        else:
+            self.has_infra = False
+        super().save(*args, **kwargs)    
 
     # def _pole_8m(self):
     #     return sum([qty for qty in [self.pole_lt_8m, self.pole_ht_8m] if qty != None])
@@ -240,6 +257,7 @@ class Resolution(Timestamp):
                                   ("done", "done"),
                                   ("pending", "pending"),
                                   ("deferred", "deferred"),
+                                  ("info", "info"),
                               )
                               )
     document = models.FileField(

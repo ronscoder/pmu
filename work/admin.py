@@ -2,19 +2,20 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
 # Register your models here.
-from .models import Site, SurveyQty, ShiftedQty, ProgressQty, SiteExtra, ShiftedQtyExtra, ProgressQtyExtra, DprQty, Resolution, Loa, Log
+from .models import Site, SurveyQty, ShiftedQty, ProgressQty, SiteExtra, ShiftedQtyExtra, ProgressQtyExtra, DprQty, Resolution, Loa, Log, Project
 from consumers.models import Consumer
 
 # admin.site.register(Site)
 # admin.site.register(SurveyQty, SimpleHistoryAdmin)
 admin.site.register(ShiftedQty, SimpleHistoryAdmin)
 # admin.site.register(ProgressQty)
-admin.site.register(SiteExtra)
+# admin.site.register(SiteExtra)
 admin.site.register(ShiftedQtyExtra, SimpleHistoryAdmin)
 # admin.site.register(ProgressQtyExtra)
-admin.site.register(DprQty, SimpleHistoryAdmin)
+# admin.site.register(DprQty, SimpleHistoryAdmin)
 admin.site.register(Log)
 admin.site.register(Loa)
+admin.site.register(Project)
 
 
 class ResolulationAdmin(SimpleHistoryAdmin):
@@ -28,10 +29,20 @@ class ConsumerAdmin(SimpleHistoryAdmin):
     search_fields = ('consumer_no','name')
 admin.site.register(Consumer, ConsumerAdmin)
 
+class DprQtyAdmin(SimpleHistoryAdmin):
+    # list_display = ('name', 'country',)
+    search_fields = ('site__hab_id', 'site__habitation','site__village')
+admin.site.register(DprQty, DprQtyAdmin)
+
 class SiteAdmin(SimpleHistoryAdmin):
     # list_display = ('name', 'country',)
     search_fields = ('hab_id', 'habitation','village')
 admin.site.register(Site, SiteAdmin)
+
+class SiteExtraAdmin(SimpleHistoryAdmin):
+    # list_display = ('name', 'country',)
+    search_fields = ('hab_id', 'habitation','village')
+admin.site.register(SiteExtra, SiteExtraAdmin)
 
 class ProgressAdmin(SimpleHistoryAdmin):
     # list_display = ('site__district',)

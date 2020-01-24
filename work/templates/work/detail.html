@@ -22,9 +22,10 @@
         </div> -->
         <div class="section">
             <a name="progress">Progress</a>
-            <table v-if="progressSites">
+            <table v-if="progressSites.length">
                 <thead>
                     <th>Review</th>
+                    <th>Review Text</th>
                     <th>PK</th>
                     <th>Site ID</th>
                     <th>Village</th>
@@ -50,6 +51,7 @@
                     <tr v-for="qty in progressSites"
                         :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']" :key="qty['id']">
                         <td><a :href="'/work/review/'+ qty['id'] + '/0'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['review_text']:}</td>
                         <td>{:qty['id']:}</td>
                         <td>{:qty['site_id']:}</td>
                         <td>{:qty['village']:}</td>
@@ -91,9 +93,10 @@
         </div>
         <div class="section">
             <a name="progress non survey non dpr">Progress Non Survey Non DPR</a>
-            <table v-if="progressAddtionalSites">
+            <table v-if="progressAddtionalSites.length">
                 <thead>
                     <th>Review</th>
+                    <th>Review Text</th>
                     <th>PK</th>
                     <th>Site ID</th>
                     <th>Village</th>
@@ -118,6 +121,7 @@
                     <tr v-for="qty in progressAddtionalSites"
                         :title="qty['district'] +' by '+qty['division'] + ' : ' +qty['hab_id']">
                         <td><a :href="'/work/review/'+ qty['id'] + '/1'" target="_blank"> {: qty['review'] :}</a></td>
+                        <td>{:qty['review_text']:}</td>
                         <td>{:qty['id']:}</td>
                         <td>{:qty['site_id']:}</td>
                         <td>{:qty['village']:}</td>
@@ -158,7 +162,7 @@
         </div>
         <div class="section">
             <a name="progress-nonsurvey">Non surveyed site progress</a>
-            <table v-if="progressQtyNonSurvey">
+            <table v-if="progressQtyNonSurvey.length">
                 <thead>
                     <th>Review</th>
                     <th>PK</th>
@@ -227,7 +231,7 @@
         </div>
         <div class="section">
             <a name="survey">Survey data</a>
-            <table v-if="surevyQtys">
+            <table v-if="surevyQtys.length">
                 <thead>
                     <th>PK</th>
                     <th>Site ID</th>
@@ -244,7 +248,7 @@
                     <th>dtr_63</th>
                     <th>dtr_25</th>
                     <th>pole_9m</th>
-                    <th>approval_status</th>
+                    <th>status</th>
                     <th>remark</th>
                     <th></th>
                     <th>Progress</th>
@@ -267,7 +271,7 @@
                         <td>{: s['dtr_63'] :}</td>
                         <td>{: s['dtr_25'] :}</td>
                         <td>{: s['pole_9m'] :}</td>
-                        <td>{: s['approval_status'] :}</td>
+                        <td>{: s['status'] :}</td>
                         <td>{: s['remark'] :}</td>
                         <td><a target="_blank" :href="'/admin/work/surveyqty/'+ s['id'] +'/'">edit</a></td>
                         <td><a :href="'/work/progress/' + s['site_id']" target="_blank">progress</a></td>
@@ -279,7 +283,7 @@
         <br>
         <div class="section">
             <a name="sites">Sites</a>
-            <table v-if="site">
+            <table v-if="site.length">
                 <thead>
                     <th>sel</th>
                     <th>check</th>
@@ -292,6 +296,7 @@
                     <th>Division</th>
                     <th>Origin</th>
                     <th></th>
+                    <th>survey</th>
                     <th>progress</th>
                     <th>shifted</th>
                     <th>variations</th>
@@ -313,19 +318,19 @@
                         <td>{: s['division']:}</td>
                         <td>{: s['origin_id']:}</td>
                         <td><a target="_blank" :href="'/admin/work/site/'+ s['id'] +'/'">edit</a></td>
+                        <td><a :href="'/work/survey/' + s['id']" target="_blank">survey</a></td>
                         <td><a :href="'/work/progress/' + s['id']" target="_blank">progress</a></td>
                         <td><a :href="'/work/shifted/' + s['id']" target="_blank">shifted</a></td>
                         <td><a :href="'/work/variations/' + s['id']" target="_blank">variations</a></td>
                     </tr>
                 </tbody>
             </table>
-            <button @click="markSiteOrigin" :disabled="(checkedSites.length == 0) || ( pickedSite == null)">Mark sites
-                to origin <b>{:pickedSite:}</b></button>
+            <button @click="markSiteOrigin" :disabled="(checkedSites.length == 0) || ( pickedSite == null)">Move sites to <b>{:pickedSite:}</b></button>
         </div>
         <br>
         <div class="section">
-            <a name="additional">Additional sites</a>
-            <table v-if="siteExtra">
+            <a name="additional">Site Variations</a>
+            <table v-if="siteExtra.length">
                 <thead>
                     <th>Sel</th>
                     <th>ID</th>
@@ -352,7 +357,7 @@
                         <td>{: s['habitation']:}</td>
                         <td>{: s['district']:}</td>
                         <td>{: s['division']:}</td>
-                        <td>{: s['site_id']:}</td>
+                        <td><a target="_blank" :href="'/admin/work/site/'+ s['site_id'] +'/'">{: s['site_id']:}</a></td>
                         <td><a target="_blank" :href="'/admin/work/siteextra/'+ s['id'] +'/'">edit</a></td>
                         <td><a target="_blank" :href="'/admin/work/siteextra/'+ s['id'] +'/delete'">x</a></td>
                     </tr>
@@ -366,7 +371,7 @@
         <br>
         <div class="section">
             <a name="dpr">DPR data</a>
-            <table v-if="dprData">
+            <table v-if="dprData.length">
                 <thead>
                     <th>Ref ID</th>
                     <!-- <th>Hab id</th> -->
@@ -466,13 +471,13 @@
         data: {
             habid: "",
             habid_exact: "",
-            site: null,
-            dprData: null,
-            surevyQtys: null,
-            siteExtra: null,
-            progressSites: null,
-            progressQtyNonSurvey: null,
-            progressAddtionalSites: null,
+            site: [],
+            dprData: [],
+            surevyQtys: [],
+            siteExtra: [],
+            progressSites: [],
+            progressQtyNonSurvey: [],
+            progressAddtionalSites: [],
             checkedSiteExtras: [],
             checkedSites: [],
             pickedSite: null,
@@ -541,12 +546,12 @@
                 console.log(v)
             },
             load: function (i) {
-                this.site = null;
-                this.dprData = null;
-                this.siteExtra = null;
-                this.surevyQtys = null;
-                this.progressSites = null;
-                this.progressAddtionalSites = null;
+                this.site = [];
+                this.dprData = [];
+                this.siteExtra = [];
+                this.surevyQtys = [];
+                this.progressSites = [];
+                this.progressAddtionalSites = [];
                 this.checkedSiteExtras = [];
                 this.checkedSites = [];
                 this.pickedSite = null;
@@ -595,6 +600,7 @@
                     this.surevyQtys = data['surevyQtys'];
                     this.progressSites = data['progressSites'];
                     this.progressQtyNonSurvey = data['progressQtyNonSurvey'];
+                    console.log(this.progressQtyNonSurvey);
                     this.progressAddtionalSites = data['progressAddtionalSites'];
                     this.summary = data['summary'];
                     tdcss();
@@ -623,8 +629,9 @@
                         'X-CSRFToken': Cookies.get('csrftoken')
                     }
                 }).then(response => {
+                    this.output = response.data['status']
+                    console.log(this.output);
                     this.load();
-                    console.log(response.data)
                 });
             },
             mergeToSite: function () {
@@ -637,6 +644,22 @@
                     }
                 }).then(response => {
                     this.output = response.data['status']
+                    console.log(this.output);
+                    this.load();
+                });
+            },
+            switchSite: function (fromSite, toSite) {
+                //console.log(this.checkedSiteExtras)
+                let formdata = new FormData();
+                formdata.append('from_site_id', fromSite);
+                formdata.append('to_site_id', toSite);
+                axios.post("{% url 'work:api_switch_site' %}", formdata, {
+                    headers: {
+                        'X-CSRFToken': Cookies.get('csrftoken')
+                    }
+                }).then(response => {
+                    this.output = response.data['status'];
+                    console.log(this.output);
                     this.load();
                 });
             },

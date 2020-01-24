@@ -29,7 +29,7 @@ class Consumer(Common):
     hab_id = models.CharField(max_length=50, null=True, blank=True)
     village = models.CharField(max_length=50, null=True, blank=True)
     census = models.IntegerField()
-    habitation = models.CharField(max_length=50)
+    habitation = models.CharField(max_length=50,  null=True, blank=True)
     name = models.CharField(max_length=50)
     consumer_no = models.CharField(max_length=50, null=True, blank=True)
     edate = models.CharField(max_length=50, null=True, blank=True)

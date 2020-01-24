@@ -1,0 +1,12 @@
+{% extends "work/base.html" %}
+{% load static %}
+{% block content %}
+<form id="downloadSummary" method="POST" action="{% url 'work:downloadFile' %}">
+    {% csrf_token %}
+    <input hidden name='path' value="outputs/project_hab_progress.xlsx">
+    <input hidden name='filename' value="project_hab_progress.xlsx">
+    <input hidden name='tabtype' value="project_hab_progress">
+    <input type="submit" value="Download Progress Hab Progress">
+</form>
+{{ data | safe }}
+{% endblock %}
